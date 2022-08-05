@@ -1,0 +1,21 @@
+[package]
+name = "viaduct"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = ["test"]
+
+[features]
+default = []
+speedy = ["dep:speedy"]
+bincode = ["dep:bincode", "dep:serde"]
+
+[dependencies]
+interprocess = "1"
+oneshot = "0"
+crossbeam-channel = "0"
+parking_lot = "0"
+serde = { version = "1", optional = true }
+bincode = { version = "1", optional = true }
+speedy = { version = "0.8", optional = true }
