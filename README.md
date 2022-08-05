@@ -110,35 +110,7 @@ Viaduct allows for applications like this to communicate between these processes
 
 # Usage
 
-## Serialization
-
-Viaduct currently supports serialization and deserialization of data using [`bincode`](https://docs.rs/bincode) or [`speedy`](https://docs.rs/speedy) at your choice, using the respective Cargo feature flags.
-
-You can also manually implement the [`Pipeable`] trait.
-
-## Initializing a viaduct
-
-A viaduct is initialized by calling [`ViaductBuilder::parent`] as the parent process, which will spawn your child process.
-
-Your child process should then call [`ViaductBuilder::child`], [`ViaductBuilder::child_with_args_os`], [`ViaductBuilder::child_with_args`] (see CAVEAT below) to bridge the connection between the parent and child.
-
-Then, you are ready to start...
-
-## Passing data
-
-Viaduct has two modes of operation: RPCs and Requests/Responses.
-
-RPCs are one-way messages, and are useful for sending notifications to the other process.
-
-Requests/Responses are two-way messages, and are useful for sending requests to the other process and receiving data as a response.
-
-Requests will block any other thread trying to send requests and RPCs through the viaduct, until a response is received.
-
-## CAVEAT: Don't use [`std::env::args_os`] or [`std::env::args`] in your child process!
-
-The child process should not use `args_os` or `args` to get its arguments, as these will contain data Viaduct needs to pass to the child process.
-
-Instead, use the argument iterator provided by [`ViaductBuilder::child_with_args_os`] or [`ViaductBuilder::child_with_args`] for `args_os` and `args` respectively.
+Check out [the documentation](https://docs.rs/viaduct/) for usage information.
 
 # License
 
