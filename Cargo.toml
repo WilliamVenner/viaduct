@@ -1,6 +1,6 @@
 [package]
 name = "viaduct"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["William Venner <william@venner.io>"]
 repository = "https://github.com/WilliamVenner/viaduct"
@@ -18,7 +18,7 @@ speedy = ["dep:speedy"]
 bincode = ["dep:bincode", "dep:serde"]
 
 [dependencies]
-interprocess = "1"
+interprocess = { version = "1", default-features = false }
 oneshot = "0"
 crossbeam-channel = "0"
 parking_lot = "0"
