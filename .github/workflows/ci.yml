@@ -16,7 +16,7 @@ jobs:
         profile: minimal
         components: clippy
     - name: Run clippy
-      run: cargo clippy --profile ci-test && cd test && cargo clippy --profile ci-test
+      run: cargo clippy --profile ci-test && cargo clippy --profile ci-test --example viaduct
       env:
         RUSTFLAGS: --cfg ci_test
     - name: Run doctests
@@ -32,15 +32,15 @@ jobs:
       env:
         RUSTFLAGS: --cfg ci_test
     - name: Test
-      run: cd test && cargo run --profile ci-test
+      run: cargo run --example viaduct --profile ci-test
       env:
         RUSTFLAGS: --cfg ci_test
     - name: Test (bincode)
-      run: cd test && cargo run --profile ci-test --features bincode
+      run: cargo run --example viaduct --profile ci-test --features bincode
       env:
         RUSTFLAGS: --cfg ci_test
     - name: Test (speedy)
-      run: cd test && cargo run --profile ci-test --features speedy
+      run: cargo run --example viaduct --profile ci-test --features speedy
       env:
         RUSTFLAGS: --cfg ci_test
 
@@ -54,7 +54,7 @@ jobs:
         profile: minimal
         components: clippy
     - name: Run clippy
-      run: cargo clippy --profile ci-test && cd test && cargo clippy --profile ci-test
+      run: cargo clippy --profile ci-test && cargo clippy --profile ci-test --example viaduct
       env:
         RUSTFLAGS: --cfg ci_test
     - name: Run doctests
@@ -70,15 +70,15 @@ jobs:
       env:
         RUSTFLAGS: --cfg ci_test
     - name: Test
-      run: cd test && cargo run --profile ci-test
+      run: cargo run --example viaduct --profile ci-test
       env:
         RUSTFLAGS: --cfg ci_test
     - name: Test (bincode)
-      run: cd test && cargo run --profile ci-test --features bincode
+      run: cargo run --example viaduct --profile ci-test --features bincode
       env:
         RUSTFLAGS: --cfg ci_test
     - name: Test (speedy)
-      run: cd test && cargo run --profile ci-test --features speedy
+      run: cargo run --example viaduct --profile ci-test --features speedy
       env:
         RUSTFLAGS: --cfg ci_test
 
@@ -92,7 +92,7 @@ jobs:
         profile: minimal
         components: clippy
     - name: Run clippy
-      run: cargo clippy --profile ci-test && cd test && cargo clippy --profile ci-test
+      run: cargo clippy --profile ci-test && cargo clippy --profile ci-test --example viaduct
       env:
         RUSTFLAGS: --cfg ci_test
     - name: Run doctests
@@ -108,15 +108,15 @@ jobs:
       env:
         RUSTFLAGS: --cfg ci_test
     - name: Test
-      run: cd test && cargo run --profile ci-test
+      run: cargo run --example viaduct --profile ci-test
       env:
         RUSTFLAGS: --cfg ci_test
     - name: Test (bincode)
-      run: cd test && cargo run --profile ci-test --features bincode
+      run: cargo run --example viaduct --profile ci-test --features bincode
       env:
         RUSTFLAGS: --cfg ci_test
     - name: Test (speedy)
-      run: cd test && cargo run --profile ci-test --features speedy
+      run: cargo run --example viaduct --profile ci-test --features speedy
       env:
         RUSTFLAGS: --cfg ci_test
 

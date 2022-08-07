@@ -16,9 +16,6 @@ lto = true
 overflow-checks = true
 debug-assertions = true
 
-[workspace]
-members = ["test"]
-
 [features]
 default = []
 speedy = ["dep:speedy"]
