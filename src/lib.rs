@@ -136,6 +136,16 @@
 
 #![deny(unsafe_op_in_unsafe_fn)]
 #![deny(missing_docs)]
+#![cfg_attr(ci_test, deny(warnings))]
+
+use interprocess::unnamed_pipe::{UnnamedPipeReader, UnnamedPipeWriter};
+use parking_lot::{Condvar, Mutex};
+use std::{
+	ffi::{OsStr, OsString},
+	io::{Read, Write},
+	process::{Child, Command},
+	sync::Arc,
+};
 
 mod chan;
 pub use chan::*;
@@ -149,15 +159,6 @@ use os::RawPipe;
 #[doc(hidden)]
 pub mod test;
 
-use interprocess::unnamed_pipe::{UnnamedPipeReader, UnnamedPipeWriter};
-use parking_lot::{Mutex, Condvar};
-use std::{
-	ffi::{OsStr, OsString},
-	io::{Read, Write},
-	process::{Child, Command},
-	sync::Arc,
-};
-
 #[derive(Clone, Copy, Debug)]
 /// The error returned when a child viaduct is started on an independent process, or the connection is lost or unrecognised whilst the viaduct is initializing.
 pub struct ChildError;
@@ -170,19 +171,31 @@ impl std::fmt::Display for ChildError {
 impl std::error::Error for ChildError {}
 
 /// Interface for creating a viaduct.
-pub struct ViaductBuilder<Rpc, Request>
+///
+/// `RpcTx` is the type sent to the peer process for RPC. In the peer process' code, this would be `RpcRx`
+///
+/// `RpcRx` is the type received from the peer process for RPC. In the peer process' code, this would be `RpcTx`
+///
+/// `RequestTx` is the type sent to the peer process for requests. In the peer process' code, this would be `RequestRx`
+///
+/// `RequestRx` is the type received from the peer process for requests. In the peer process' code, this would be `RequestTx`
+pub struct ViaductBuilder<RpcTx, RequestTx, RpcRx, RequestRx>
 where
-	Rpc: Pipeable,
-	Request: Pipeable
+	RpcTx: Pipeable,
+	RequestTx: Pipeable,
+	RpcRx: Pipeable,
+	RequestRx: Pipeable,
 {
 	command: Command,
-	tx: ViaductTx<Rpc, Request>,
-	rx: ViaductRx<Rpc, Request>,
+	tx: ViaductTx<RpcTx, RequestTx, RpcRx, RequestRx>,
+	rx: ViaductRx<RpcTx, RequestTx, RpcRx, RequestRx>,
 }
-impl<Rpc, Request> ViaductBuilder<Rpc, Request>
+impl<RpcTx, RequestTx, RpcRx, RequestRx> ViaductBuilder<RpcTx, RequestTx, RpcRx, RequestRx>
 where
-	Rpc: Pipeable,
-	Request: Pipeable
+	RpcTx: Pipeable,
+	RequestTx: Pipeable,
+	RpcRx: Pipeable,
+	RequestRx: Pipeable,
 {
 	/// Initializes a viaduct in the child process.
 	///
@@ -194,7 +207,7 @@ where
 	///
 	/// * Manipulating the program's arguments in a way that disrupts Viaduct's handle exchange.
 	/// * Mixing 32-bit and 64-bit parent and child
-	pub unsafe fn child() -> Result<Viaduct<Rpc, Request>, ChildError> {
+	pub unsafe fn child() -> Result<Viaduct<RpcTx, RequestTx, RpcRx, RequestRx>, ChildError> {
 		let mut args = std::env::args_os();
 		{
 			let sig = OsStr::new("PIPER_START");
@@ -232,7 +245,7 @@ where
 	///
 	/// * Manipulating the program's arguments in a way that disrupts Viaduct's handle exchange.
 	/// * Mixing 32-bit and 64-bit parent and child
-	pub unsafe fn child_with_args_os() -> Result<(Viaduct<Rpc, Request>, impl Iterator<Item = OsString>), ChildError> {
+	pub unsafe fn child_with_args_os() -> Result<(Viaduct<RpcTx, RequestTx, RpcRx, RequestRx>, impl Iterator<Item = OsString>), ChildError> {
 		let mut args = std::env::args_os();
 		let mut buffer = Vec::with_capacity(1);
 
@@ -277,7 +290,7 @@ where
 	///
 	/// * Manipulating the program's arguments in a way that disrupts Viaduct's handle exchange.
 	/// * Mixing 32-bit and 64-bit parent and child
-	pub unsafe fn child_with_args() -> Result<(Viaduct<Rpc, Request>, impl Iterator<Item = String>), ChildError> {
+	pub unsafe fn child_with_args() -> Result<(Viaduct<RpcTx, RequestTx, RpcRx, RequestRx>, impl Iterator<Item = String>), ChildError> {
 		let mut args = std::env::args();
 		let mut buffer = Vec::with_capacity(1);
 
@@ -319,8 +332,8 @@ where
 			panic!("Command must not have any arguments - to add arguments to your command please use the `arg` method and `args` method of this builder");
 		}
 
-		let (child_w, parent_r) = interprocess::unnamed_pipe::pipe()?;
-		let (parent_w, child_r) = interprocess::unnamed_pipe::pipe()?;
+		let (child_w, child_r) = interprocess::unnamed_pipe::pipe()?;
+		let (parent_w, parent_r) = interprocess::unnamed_pipe::pipe()?;
 
 		command.arg("PIPER_START");
 		command.args(&[(parent_w.raw() as u64).to_string(), (child_r.raw() as u64).to_string()]);
@@ -346,7 +359,8 @@ where
 	}
 
 	/// Spawns the child process and returns it along with a [`Viaduct`](crate::Viaduct).
-	pub fn build(mut self) -> Result<(Viaduct<Rpc, Request>, Child), std::io::Error> {
+	#[allow(clippy::type_complexity)]
+	pub fn build(mut self) -> Result<(Viaduct<RpcTx, RequestTx, RpcRx, RequestRx>, Child), std::io::Error> {
 		struct KillHandle(Option<Child>);
 		impl Drop for KillHandle {
 			#[inline]
@@ -373,24 +387,25 @@ where
 		Ok(((self.tx, self.rx), unsafe { child.0.take().unwrap_unchecked() }))
 	}
 
-	fn channel(tx: UnnamedPipeWriter, rx: UnnamedPipeReader) -> Viaduct<Rpc, Request> {
+	fn channel(tx: UnnamedPipeWriter, rx: UnnamedPipeReader) -> Viaduct<RpcTx, RequestTx, RpcRx, RequestRx> {
 		let tx = ViaductTx(Arc::new(ViaductTxInner {
 			condvar: Condvar::new(),
 			state: Mutex::new(ViaductTxState {
 				buf: Vec::new(),
 				tx,
 				_phantom: Default::default(),
-			})
+			}),
 		}));
 		let rx = ViaductRx {
 			buf: Vec::new(),
 			tx: tx.clone(),
 			rx,
+			_phantom: Default::default(),
 		};
 		(tx, rx)
 	}
 
-	unsafe fn child_handshake(parent_w: u64, child_r: u64) -> Result<Viaduct<Rpc, Request>, ChildError> {
+	unsafe fn child_handshake(parent_w: u64, child_r: u64) -> Result<Viaduct<RpcTx, RequestTx, RpcRx, RequestRx>, ChildError> {
 		let parent_w = unsafe { UnnamedPipeWriter::from_raw(parent_w as _) };
 		let child_r = unsafe { UnnamedPipeReader::from_raw(child_r as _) };
 

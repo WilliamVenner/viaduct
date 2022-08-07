@@ -10,19 +10,136 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        components: clippy
+    - name: Run clippy
+      run: cargo clippy --profile ci-test && cd test && cargo clippy --profile ci-test
+      env:
+        RUSTFLAGS: --cfg ci_test
+    - name: Run doctests
+      run: cargo test --profile ci-test
+      env:
+        RUSTFLAGS: --cfg ci_test
+    - name: Run doctests (bincode)
+      run: cargo test --profile ci-test --features bincode
+      env:
+        RUSTFLAGS: --cfg ci_test
+    - name: Run doctests (speedy)
+      run: cargo test --profile ci-test --features speedy
+      env:
+        RUSTFLAGS: --cfg ci_test
     - name: Test
-      run: cd test && cargo run --release
+      run: cd test && cargo run --profile ci-test
+      env:
+        RUSTFLAGS: --cfg ci_test
+    - name: Test (bincode)
+      run: cd test && cargo run --profile ci-test --features bincode
+      env:
+        RUSTFLAGS: --cfg ci_test
+    - name: Test (speedy)
+      run: cd test && cargo run --profile ci-test --features speedy
+      env:
+        RUSTFLAGS: --cfg ci_test
 
   test_windows:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        components: clippy
+    - name: Run clippy
+      run: cargo clippy --profile ci-test && cd test && cargo clippy --profile ci-test
+      env:
+        RUSTFLAGS: --cfg ci_test
+    - name: Run doctests
+      run: cargo test --profile ci-test
+      env:
+        RUSTFLAGS: --cfg ci_test
+    - name: Run doctests (bincode)
+      run: cargo test --profile ci-test --features bincode
+      env:
+        RUSTFLAGS: --cfg ci_test
+    - name: Run doctests (speedy)
+      run: cargo test --profile ci-test --features speedy
+      env:
+        RUSTFLAGS: --cfg ci_test
     - name: Test
-      run: cd test && cargo run --release
+      run: cd test && cargo run --profile ci-test
+      env:
+        RUSTFLAGS: --cfg ci_test
+    - name: Test (bincode)
+      run: cd test && cargo run --profile ci-test --features bincode
+      env:
+        RUSTFLAGS: --cfg ci_test
+    - name: Test (speedy)
+      run: cd test && cargo run --profile ci-test --features speedy
+      env:
+        RUSTFLAGS: --cfg ci_test
 
   test_macos:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        components: clippy
+    - name: Run clippy
+      run: cargo clippy --profile ci-test && cd test && cargo clippy --profile ci-test
+      env:
+        RUSTFLAGS: --cfg ci_test
+    - name: Run doctests
+      run: cargo test --profile ci-test
+      env:
+        RUSTFLAGS: --cfg ci_test
+    - name: Run doctests (bincode)
+      run: cargo test --profile ci-test --features bincode
+      env:
+        RUSTFLAGS: --cfg ci_test
+    - name: Run doctests (speedy)
+      run: cargo test --profile ci-test --features speedy
+      env:
+        RUSTFLAGS: --cfg ci_test
     - name: Test
-      run: cd test && cargo run --release
+      run: cd test && cargo run --profile ci-test
+      env:
+        RUSTFLAGS: --cfg ci_test
+    - name: Test (bincode)
+      run: cd test && cargo run --profile ci-test --features bincode
+      env:
+        RUSTFLAGS: --cfg ci_test
+    - name: Test (speedy)
+      run: cd test && cargo run --profile ci-test --features speedy
+      env:
+        RUSTFLAGS: --cfg ci_test
+
+  fmt_unix:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        components: rustfmt
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+
+  fmt_windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        components: rustfmt
+    - name: Check formatting
+      run: cargo fmt --all -- --check

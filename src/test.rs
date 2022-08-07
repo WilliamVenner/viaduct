@@ -2,16 +2,25 @@
 
 #![allow(unused)]
 
-pub enum ExampleRpc { Cow, Pig, Horse }
-pub enum ExampleRequest { DoAFrontflip, DoABackflip }
-pub enum ExampleResponse { FrontflipOk, BackflipOk }
+#[derive(Debug)]
+pub enum ExampleRpc {
+	Cow,
+	Pig,
+	Horse,
+}
+
+#[derive(Debug)]
+pub enum ExampleRequest {
+	DoAFrontflip,
+	DoABackflip,
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Result<T, E> {
 	Ok(T),
-	Err(E)
+	Err(E),
 }
-pub use self::Result::{Ok, Err};
+pub use self::Result::{Err, Ok};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct FrontflipError;
@@ -20,41 +29,40 @@ pub struct FrontflipError;
 pub struct BackflipError;
 
 impl<T, E> super::serde::Pipeable for Result<T, E> {
-    fn to_pipeable(&self, buf: &mut Vec<u8>) {
-        unimplemented!()
-    }
+	type SerializeError = std::convert::Infallible;
+	type DeserializeError = std::convert::Infallible;
 
-    fn from_pipeable(bytes: &[u8]) -> Self {
-        unimplemented!()
-    }
+	fn to_pipeable(&self, buf: &mut Vec<u8>) -> std::result::Result<(), Self::SerializeError> {
+		unimplemented!()
+	}
+
+	fn from_pipeable(bytes: &[u8]) -> std::result::Result<Self, Self::DeserializeError> {
+		unimplemented!()
+	}
 }
 
 impl super::serde::Pipeable for ExampleRpc {
-    fn to_pipeable(&self, buf: &mut Vec<u8>) {
-        unimplemented!()
-    }
+	type SerializeError = std::convert::Infallible;
+	type DeserializeError = std::convert::Infallible;
 
-    fn from_pipeable(bytes: &[u8]) -> Self {
-        unimplemented!()
-    }
+	fn to_pipeable(&self, buf: &mut Vec<u8>) -> std::result::Result<(), Self::SerializeError> {
+		unimplemented!()
+	}
+
+	fn from_pipeable(bytes: &[u8]) -> std::result::Result<Self, Self::DeserializeError> {
+		unimplemented!()
+	}
 }
 
 impl super::serde::Pipeable for ExampleRequest {
-    fn to_pipeable(&self, buf: &mut Vec<u8>) {
-        unimplemented!()
-    }
+	type SerializeError = std::convert::Infallible;
+	type DeserializeError = std::convert::Infallible;
 
-    fn from_pipeable(bytes: &[u8]) -> Self {
-        unimplemented!()
-    }
-}
+	fn to_pipeable(&self, buf: &mut Vec<u8>) -> std::result::Result<(), Self::SerializeError> {
+		unimplemented!()
+	}
 
-impl super::serde::Pipeable for ExampleResponse {
-    fn to_pipeable(&self, buf: &mut Vec<u8>) {
-        unimplemented!()
-    }
-
-    fn from_pipeable(bytes: &[u8]) -> Self {
-        unimplemented!()
-    }
+	fn from_pipeable(bytes: &[u8]) -> std::result::Result<Self, Self::DeserializeError> {
+		unimplemented!()
+	}
 }

@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 
 [features]
-default = ["bincode"]
+default = []
 speedy = ["dep:speedy", "viaduct/speedy"]
 bincode = ["dep:bincode", "dep:serde", "viaduct/bincode"]
 

@@ -1,6 +1,6 @@
 [package]
 name = "viaduct"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 authors = ["William Venner <william@venner.io>"]
 repository = "https://github.com/WilliamVenner/viaduct"
@@ -8,6 +8,13 @@ description = "A duplex communication channel between a parent and child process
 license = "MIT OR Apache-2.0"
 categories = ["asynchronous", "memory-management"]
 keywords = ["pipes", "ipc", "multiprocessing", "duplex"]
+
+[profile.ci-test]
+inherits = "dev"
+opt-level = 0
+lto = true
+overflow-checks = true
+debug-assertions = true
 
 [workspace]
 members = ["test"]
