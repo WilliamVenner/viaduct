@@ -6,140 +6,72 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test_linux:
+  check:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        features: ["", "--features bincode", "--features speedy"]
+    runs-on: ${{ matrix.os }}
+    env:
+      RUSTFLAGS: --cfg ci_test
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          components: clippy
+      - name: Clippy
+        run: cargo clippy --profile ci-test --examples --tests --benches ${{ matrix.features }}
+
+  fmt:
+    needs: check
     runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: --cfg ci_test
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        profile: minimal
-        components: clippy
-    - name: Run clippy
-      run: cargo clippy --profile ci-test && cargo clippy --profile ci-test --example viaduct
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Run doctests
-      run: cargo test --profile ci-test
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Run doctests (bincode)
-      run: cargo test --profile ci-test --features bincode
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Run doctests (speedy)
-      run: cargo test --profile ci-test --features speedy
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Test
-      run: cargo run --example viaduct --profile ci-test
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Test (bincode)
-      run: cargo run --example viaduct --profile ci-test --features bincode
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Test (speedy)
-      run: cargo run --example viaduct --profile ci-test --features speedy
-      env:
-        RUSTFLAGS: --cfg ci_test
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --all -- --check
 
-  test_windows:
-    runs-on: windows-latest
+  test:
+    needs: fmt
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        features: ["", "--features bincode", "--features speedy"]
+    runs-on: ${{ matrix.os }}
+    env:
+      RUSTFLAGS: --cfg ci_test
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        profile: minimal
-        components: clippy
-    - name: Run clippy
-      run: cargo clippy --profile ci-test && cargo clippy --profile ci-test --example viaduct
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Run doctests
-      run: cargo test --profile ci-test
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Run doctests (bincode)
-      run: cargo test --profile ci-test --features bincode
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Run doctests (speedy)
-      run: cargo test --profile ci-test --features speedy
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Test
-      run: cargo run --example viaduct --profile ci-test
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Test (bincode)
-      run: cargo run --example viaduct --profile ci-test --features bincode
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Test (speedy)
-      run: cargo run --example viaduct --profile ci-test --features speedy
-      env:
-        RUSTFLAGS: --cfg ci_test
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+      - name: Run doctests
+        run: cargo test --profile ci-test ${{ matrix.features }}
 
-  test_macos:
-    runs-on: macos-latest
+  test_examples:
+    needs: test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        features: ["", "--features bincode", "--features speedy"]
+        example: ["--example viaduct", "--example parallel_requests"]
+    runs-on: ${{ matrix.os }}
+    env:
+      RUSTFLAGS: --cfg ci_test
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        profile: minimal
-        components: clippy
-    - name: Run clippy
-      run: cargo clippy --profile ci-test && cargo clippy --profile ci-test --example viaduct
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Run doctests
-      run: cargo test --profile ci-test
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Run doctests (bincode)
-      run: cargo test --profile ci-test --features bincode
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Run doctests (speedy)
-      run: cargo test --profile ci-test --features speedy
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Test
-      run: cargo run --example viaduct --profile ci-test
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Test (bincode)
-      run: cargo run --example viaduct --profile ci-test --features bincode
-      env:
-        RUSTFLAGS: --cfg ci_test
-    - name: Test (speedy)
-      run: cargo run --example viaduct --profile ci-test --features speedy
-      env:
-        RUSTFLAGS: --cfg ci_test
-
-  fmt_unix:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        profile: minimal
-        components: rustfmt
-    - name: Check formatting
-      run: cargo fmt --all -- --check
-
-  fmt_windows:
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        profile: minimal
-        components: rustfmt
-    - name: Check formatting
-      run: cargo fmt --all -- --check
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+      - name: Test example
+        run: cargo run --profile ci-test ${{ matrix.features }} ${{ matrix.example }}

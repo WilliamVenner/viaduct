@@ -1,6 +1,6 @@
 [package]
 name = "viaduct"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2021"
 authors = ["William Venner <william@venner.io>"]
 repository = "https://github.com/WilliamVenner/viaduct"
@@ -24,6 +24,7 @@ bincode = ["dep:bincode", "dep:serde"]
 [dependencies]
 interprocess = { version = "1", default-features = false }
 parking_lot = "0"
+uuid = { version = "1", features = ["v4"] }
 serde = { version = "1", optional = true }
 bincode = { version = "1", optional = true }
 speedy = { version = "0.8", optional = true }

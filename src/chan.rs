@@ -7,6 +7,7 @@ use std::{
 	mem::size_of,
 	sync::Arc,
 };
+use uuid::Uuid;
 
 pub(super) const HELLO: &[u8] = b"Read this if you are a beautiful strong unnamed pipe who don't need no handles";
 
@@ -148,6 +149,12 @@ where
 				}
 
 				1 => {
+					let request_id = {
+						let mut request_id = [0u8; 16];
+						self.rx.read_exact(&mut request_id)?;
+						request_id
+					};
+
 					recv_into_buf(&mut self.rx, &mut self.buf)?;
 
 					let request = RequestRx::from_pipeable(&self.buf).expect("Failed to deserialize RequestRx");
@@ -156,23 +163,32 @@ where
 					request_handler(request, ViaductResponse(&mut self.buf));
 
 					let mut tx = self.tx.0.state.lock();
-					tx.tx.write_all(&[2])?;
-					tx.tx.write_all(&u64::to_ne_bytes(self.buf.len() as _))?;
-					tx.tx.write_all(&self.buf)?;
+					let ViaductTxState { tx, .. } = &mut *tx;
+					tx.write_all(&[2])?;
+					tx.write_all(&request_id)?;
+					tx.write_all(&u64::to_ne_bytes(self.buf.len() as _))?;
+					tx.write_all(&self.buf)?;
 				}
 
 				2 => {
-					// Lock the sender side
-					let mut lock = self.tx.0.state.lock();
+					let mut response = self.tx.0.response.lock();
+					self.tx
+						.0
+						.response_condvar
+						.wait_while(&mut response, |response| response.for_request_id.is_some());
+
+					response.for_request_id = Some({
+						let mut request_id = [0u8; 16];
+						self.rx.read_exact(&mut request_id)?;
+						Uuid::from_bytes(request_id)
+					});
 
 					// Receive the response into the sender's buffer
-					lock.buf.clear();
-					recv_into_buf(&mut self.rx, &mut lock.buf)?;
+					response.buf.clear();
+					recv_into_buf(&mut self.rx, &mut response.buf)?;
 
 					// Tell the sender that the response is ready and in their buffer!
-					if !self.tx.0.condvar.notify_one() {
-						return Err(std::io::Error::new(std::io::ErrorKind::BrokenPipe, "Viaduct request channel was closed"));
-					}
+					self.tx.0.response_condvar.notify_all();
 				}
 
 				_ => unreachable!(),
@@ -181,21 +197,45 @@ where
 	}
 }
 
+#[derive(Default)]
+pub(super) struct ViaductResponseState {
+	for_request_id: Option<Uuid>,
+	buf: Vec<u8>,
+}
+
 /// The sending side of a viaduct.
 ///
 /// This handle can be freely cloned and sent across threads.
 pub struct ViaductTx<RpcTx, RequestTx, RpcRx, RequestRx>(pub(super) Arc<ViaductTxInner<RpcTx, RequestTx, RpcRx, RequestRx>>);
+
 pub(super) struct ViaductTxInner<RpcTx, RequestTx, RpcRx, RequestRx> {
 	pub(super) state: Mutex<ViaductTxState<RpcTx, RequestTx, RpcRx, RequestRx>>,
+	pub(super) response: Mutex<ViaductResponseState>,
+	pub(super) response_condvar: Condvar,
+}
 
-	/// Condvar used to synchronize passing a response to the other side of the viaduct.
-	pub(super) condvar: Condvar,
-}
 pub(super) struct ViaductTxState<RpcTx, RequestTx, RpcRx, RequestRx> {
-	pub(super) buf: Vec<u8>,
 	pub(super) tx: UnnamedPipeWriter,
-	pub(super) _phantom: PhantomData<(RpcTx, RequestTx, RpcRx, RequestRx)>,
+	buf: Vec<u8>,
+	_phantom: PhantomData<(RpcTx, RequestTx, RpcRx, RequestRx)>,
 }
+impl<RpcTx, RequestTx, RpcRx, RequestRx> ViaductTxState<RpcTx, RequestTx, RpcRx, RequestRx>
+where
+	RpcTx: Pipeable,
+	RpcRx: Pipeable,
+	RequestTx: Pipeable,
+	RequestRx: Pipeable,
+{
+	#[inline]
+	pub(super) fn new(tx: UnnamedPipeWriter) -> Self {
+		Self {
+			buf: Vec::new(),
+			tx,
+			_phantom: Default::default(),
+		}
+	}
+}
+
 impl<RpcTx, RequestTx, RpcRx, RequestRx> ViaductTx<RpcTx, RequestTx, RpcRx, RequestRx>
 where
 	RpcTx: Pipeable,
@@ -234,10 +274,14 @@ where
 	///
 	/// This function will panic if the peer process doesn't send the expected type (`Response`) as the response.
 	pub fn request<Response: Pipeable>(&self, request: RequestTx) -> Result<Response, std::io::Error> {
-		let mut state = self.0.state.lock();
+		let mut response = self.0.response.lock();
+
+		// Get a request ID
+		let request_id = Uuid::new_v4();
 
 		// Send the request down the wire
 		{
+			let mut state = self.0.state.lock();
 			let ViaductTxState { buf, tx, .. } = &mut *state;
 
 			request
@@ -248,15 +292,24 @@ where
 				.expect("Failed to serialize RequestTx");
 
 			tx.write_all(&[1])?;
+			tx.write_all(request_id.as_bytes())?;
 			tx.write_all(&u64::to_ne_bytes(buf.len() as _))?;
 			tx.write_all(&*buf)?;
 		}
 
-		// Unlock the mutex and wait for the receiving side to send the response
-		self.0.condvar.wait(&mut state);
+		self.0
+			.response_condvar
+			.wait_while(&mut response, |response| response.for_request_id != Some(request_id));
+
+		// Take the request ID out of state
+		debug_assert_eq!(response.for_request_id, Some(request_id));
+		response.for_request_id = None;
+
+		// Notify the condvar because the writer half might be waiting for the request ID to become None
+		self.0.response_condvar.notify_all();
 
 		// Deserialize the response and return it
-		Ok(Response::from_pipeable(&state.buf).expect("Failed to deserialize Response"))
+		Ok(Response::from_pipeable(&response.buf).expect("Failed to deserialize Response"))
 	}
 }
 impl<RpcTx, RequestTx, RpcRx, RequestRx> Clone for ViaductTx<RpcTx, RequestTx, RpcRx, RequestRx>

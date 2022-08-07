@@ -389,12 +389,9 @@ where
 
 	fn channel(tx: UnnamedPipeWriter, rx: UnnamedPipeReader) -> Viaduct<RpcTx, RequestTx, RpcRx, RequestRx> {
 		let tx = ViaductTx(Arc::new(ViaductTxInner {
-			condvar: Condvar::new(),
-			state: Mutex::new(ViaductTxState {
-				buf: Vec::new(),
-				tx,
-				_phantom: Default::default(),
-			}),
+			response_condvar: Condvar::new(),
+			response: Mutex::new(ViaductResponseState::default()),
+			state: Mutex::new(ViaductTxState::new(tx)),
 		}));
 		let rx = ViaductRx {
 			buf: Vec::new(),
