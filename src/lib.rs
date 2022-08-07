@@ -149,7 +149,7 @@ mod os;
 use os::RawPipe;
 
 use interprocess::unnamed_pipe::{UnnamedPipeReader, UnnamedPipeWriter};
-use parking_lot::Mutex;
+use parking_lot::{Mutex, Condvar};
 use std::{
 	ffi::{OsStr, OsString},
 	io::{Read, Write},
@@ -169,21 +169,19 @@ impl std::fmt::Display for ChildError {
 impl std::error::Error for ChildError {}
 
 /// Interface for creating a viaduct.
-pub struct ViaductBuilder<Rpc, Request, Response>
+pub struct ViaductBuilder<Rpc, Request>
 where
 	Rpc: Pipeable,
-	Request: Pipeable,
-	Response: Pipeable,
+	Request: Pipeable
 {
 	command: Command,
-	tx: ViaductTx<Rpc, Request, Response>,
-	rx: ViaductRx<Rpc, Request, Response>,
+	tx: ViaductTx<Rpc, Request>,
+	rx: ViaductRx<Rpc, Request>,
 }
-impl<Rpc, Request, Response> ViaductBuilder<Rpc, Request, Response>
+impl<Rpc, Request> ViaductBuilder<Rpc, Request>
 where
 	Rpc: Pipeable,
-	Request: Pipeable,
-	Response: Pipeable,
+	Request: Pipeable
 {
 	/// Initializes a viaduct in the child process.
 	///
@@ -195,7 +193,7 @@ where
 	///
 	/// * Manipulating the program's arguments in a way that disrupts Viaduct's handle exchange.
 	/// * Mixing 32-bit and 64-bit parent and child
-	pub unsafe fn child() -> Result<Viaduct<Rpc, Request, Response>, ChildError> {
+	pub unsafe fn child() -> Result<Viaduct<Rpc, Request>, ChildError> {
 		let mut args = std::env::args_os();
 		{
 			let sig = OsStr::new("PIPER_START");
@@ -233,7 +231,7 @@ where
 	///
 	/// * Manipulating the program's arguments in a way that disrupts Viaduct's handle exchange.
 	/// * Mixing 32-bit and 64-bit parent and child
-	pub unsafe fn child_with_args_os() -> Result<(Viaduct<Rpc, Request, Response>, impl Iterator<Item = OsString>), ChildError> {
+	pub unsafe fn child_with_args_os() -> Result<(Viaduct<Rpc, Request>, impl Iterator<Item = OsString>), ChildError> {
 		let mut args = std::env::args_os();
 		let mut buffer = Vec::with_capacity(1);
 
@@ -278,7 +276,7 @@ where
 	///
 	/// * Manipulating the program's arguments in a way that disrupts Viaduct's handle exchange.
 	/// * Mixing 32-bit and 64-bit parent and child
-	pub unsafe fn child_with_args() -> Result<(Viaduct<Rpc, Request, Response>, impl Iterator<Item = String>), ChildError> {
+	pub unsafe fn child_with_args() -> Result<(Viaduct<Rpc, Request>, impl Iterator<Item = String>), ChildError> {
 		let mut args = std::env::args();
 		let mut buffer = Vec::with_capacity(1);
 
@@ -347,7 +345,7 @@ where
 	}
 
 	/// Spawns the child process and returns it along with a [`Viaduct`](crate::Viaduct).
-	pub fn build(mut self) -> Result<(Viaduct<Rpc, Request, Response>, Child), std::io::Error> {
+	pub fn build(mut self) -> Result<(Viaduct<Rpc, Request>, Child), std::io::Error> {
 		struct KillHandle(Option<Child>);
 		impl Drop for KillHandle {
 			#[inline]
@@ -358,7 +356,7 @@ where
 			}
 		}
 
-		self.tx.0.lock().tx.write_all(chan::HELLO)?;
+		self.tx.0.state.lock().tx.write_all(chan::HELLO)?;
 
 		let mut child = KillHandle(Some(self.command.spawn()?));
 
@@ -374,30 +372,30 @@ where
 		Ok(((self.tx, self.rx), unsafe { child.0.take().unwrap_unchecked() }))
 	}
 
-	fn channel(tx: UnnamedPipeWriter, rx: UnnamedPipeReader) -> Viaduct<Rpc, Request, Response> {
-		let (request_tx, request_rx) = crossbeam_channel::bounded(1);
-		let tx = ViaductTx(Arc::new(Mutex::new(ViaductTxInner {
-			buf: Vec::new(),
-			tx,
-			request_tx,
-			_phantom: Default::default(),
-		})));
+	fn channel(tx: UnnamedPipeWriter, rx: UnnamedPipeReader) -> Viaduct<Rpc, Request> {
+		let tx = ViaductTx(Arc::new(ViaductTxInner {
+			condvar: Condvar::new(),
+			state: Mutex::new(ViaductTxState {
+				buf: Vec::new(),
+				tx,
+				_phantom: Default::default(),
+			})
+		}));
 		let rx = ViaductRx {
 			buf: Vec::new(),
 			tx: tx.clone(),
-			request_rx,
 			rx,
 		};
 		(tx, rx)
 	}
 
-	unsafe fn child_handshake(parent_w: u64, child_r: u64) -> Result<Viaduct<Rpc, Request, Response>, ChildError> {
+	unsafe fn child_handshake(parent_w: u64, child_r: u64) -> Result<Viaduct<Rpc, Request>, ChildError> {
 		let parent_w = unsafe { UnnamedPipeWriter::from_raw(parent_w as _) };
 		let child_r = unsafe { UnnamedPipeReader::from_raw(child_r as _) };
 
 		let (tx, mut rx) = Self::channel(parent_w, child_r);
 
-		if tx.0.lock().tx.write_all(chan::HELLO).is_err() {
+		if tx.0.state.lock().tx.write_all(chan::HELLO).is_err() {
 			return Err(ChildError);
 		}
 

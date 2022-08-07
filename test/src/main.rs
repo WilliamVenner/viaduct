@@ -25,10 +25,10 @@ fn main() {
 						assert_eq!(rpc.magic, 69);
 						println!("[CHILD] RPC received: {}", rpc.magic);
 					},
-					|request: DummyRequest| {
+					|request: DummyRequest, tx| {
 						assert_eq!(request.magic, 420);
 						println!("[CHILD] Request received: {}", request.magic);
-						DummyResponse { magic: 42069 }
+						tx.respond(DummyResponse { magic: 42069 })
 					},
 				)
 				.unwrap();
@@ -36,7 +36,7 @@ fn main() {
 
 			tx.rpc(DummyRpc { magic: 69 }).unwrap();
 
-			let response = tx.request(DummyRequest { magic: 420 }).unwrap();
+			let response = tx.request::<DummyResponse>(DummyRequest { magic: 420 }).unwrap();
 			assert_eq!(response.magic, 42069);
 			println!("[CHILD] Response received: {}", response.magic);
 
@@ -56,17 +56,17 @@ fn main() {
 						assert_eq!(rpc.magic, 69);
 						println!("[PARENT] RPC received: {}", rpc.magic);
 					},
-					|request: DummyRequest| {
+					|request: DummyRequest, tx| {
 						assert_eq!(request.magic, 420);
 						println!("[PARENT] Request received: {}", request.magic);
-						DummyResponse { magic: 42069 }
+						tx.respond(DummyResponse { magic: 42069 })
 					},
 				)
 				.unwrap();
 			});
 
 			tx.rpc(DummyRpc { magic: 69 }).unwrap();
-			assert_eq!(tx.request(DummyRequest { magic: 420 }).unwrap().magic, 42069);
+			assert_eq!(tx.request::<DummyResponse>(DummyRequest { magic: 420 }).unwrap().magic, 42069);
 
 			child.wait().unwrap();
 		}
