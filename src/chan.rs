@@ -35,7 +35,7 @@ impl ViaductResponse<'_> {
 	/// # Example
 	///
 	/// ```no_run
-	/// # use viaduct::test::*;
+	/// # use viaduct::doctest::*;
 	/// # let rx = unsafe { viaduct::ViaductBuilder::<ExampleRpc, ExampleRequest, ExampleRpc, ExampleRequest>::child() }.unwrap().1;
 	/// rx.run(
 	///     |rpc: ExampleRpc| match rpc {
@@ -93,7 +93,7 @@ where
 	/// # Example
 	///
 	/// ```no_run
-	/// # use viaduct::test::*;
+	/// # use viaduct::doctest::*;
 	/// # let rx = unsafe { viaduct::ViaductBuilder::<ExampleRpc, ExampleRequest, ExampleRpc, ExampleRequest>::child() }.unwrap().1;
 	/// std::thread::spawn(move || {
 	///     rx.run(

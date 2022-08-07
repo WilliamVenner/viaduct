@@ -24,7 +24,7 @@
 //! ## Parent process
 //!
 //! ```no_run
-//! # use viaduct::test::*;
+//! # use viaduct::doctest::*;
 //! let child = std::process::Command::new("child.exe");
 //! let ((tx, rx), mut child) = viaduct::ViaductBuilder::parent(child).unwrap().build().unwrap();
 //!
@@ -61,7 +61,7 @@
 //! ## Child process
 //!
 //! ```no_run
-//! # use viaduct::test::*;
+//! # use viaduct::doctest::*;
 //! let (tx, rx) = unsafe { viaduct::ViaductBuilder::child() }.unwrap();
 //!
 //! std::thread::spawn(move || {
@@ -157,7 +157,7 @@ mod os;
 use os::RawPipe;
 
 #[doc(hidden)]
-pub mod test;
+pub mod doctest;
 
 #[derive(Clone, Copy, Debug)]
 /// The error returned when a child viaduct is started on an independent process, or the connection is lost or unrecognised whilst the viaduct is initializing.
