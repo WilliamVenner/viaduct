@@ -4,7 +4,9 @@
 //!
 //! ## Shared library
 //!
-//! ```ignore
+//! ```no_run
+//! use serde::{Serialize, Deserialize};
+//!
 //! #[derive(Serialize, Deserialize)]
 //! pub enum ExampleRpc {
 //!     Cow,
@@ -12,24 +14,19 @@
 //!     Horse
 //! }
 //!
-//! #[derive(Serialize, Deserialize)]
-//! pub enum ExampleRequest {
-//!     DoAFrontflip,
-//!     DoABackflip,
-//! }
+//! #[derive(Serialize, Deserialize, PartialEq, Eq)]
+//! pub struct FrontflipError;
 //!
 //! #[derive(Serialize, Deserialize, PartialEq, Eq)]
-//! pub enum ExampleResponse {
-//!     FrontflipOk,
-//!     BackflipOk,
-//! }
+//! pub struct BackflipError;
 //! ```
 //!
 //! ## Parent process
 //!
-//! ```ignore
+//! ```no_run
+//! # use viaduct::test::*;
 //! let child = std::process::Command::new("child.exe");
-//! let ((tx, rx), mut child) = viaduct::ViaductBuilder::parent(child).unwrap();
+//! let ((tx, rx), mut child) = viaduct::ViaductBuilder::parent(child).unwrap().build().unwrap();
 //!
 //! std::thread::spawn(move || {
 //!     rx.run(
@@ -39,15 +36,15 @@
 //!             ExampleRpc::Horse => println!("Neigh"),
 //!         },
 //!
-//!         |request: ExampleRequest| match request {
+//!         |request: ExampleRequest, tx| match request {
 //!             ExampleRequest::DoAFrontflip => {
 //!                 println!("Doing a frontflip!");
-//!                 ExampleResponse::FrontflipOk
+//!                 tx.respond(Ok::<_, FrontflipError>(()))
 //!             },
 //!
 //!             ExampleRequest::DoABackflip => {
 //!                 println!("Doing a backflip!");
-//!                 ExampleResponse::BackflipOk
+//!                 tx.respond(Ok::<_, BackflipError>(()))
 //!             },
 //!         },
 //!     ).unwrap();
@@ -57,14 +54,15 @@
 //! tx.rpc(ExampleRpc::Pig).unwrap();
 //! tx.rpc(ExampleRpc::Horse).unwrap();
 //!
-//! let response = tx.request(ExampleRequest::DoAFrontflip).unwrap();
-//! assert_eq!(response, ExampleResponse::FrontflipOk);
+//! let response: Result<(), FrontflipError> = tx.request(ExampleRequest::DoAFrontflip).unwrap();
+//! assert_eq!(response, Ok(()));
 //! ```
 //!
 //! ## Child process
 //!
-//! ```ignore
-//! let (tx, rx) = viaduct::ViaductBuilder::child().unwrap();
+//! ```no_run
+//! # use viaduct::test::*;
+//! let (tx, rx) = unsafe { viaduct::ViaductBuilder::child() }.unwrap();
 //!
 //! std::thread::spawn(move || {
 //!     rx.run(
@@ -74,15 +72,15 @@
 //!             ExampleRpc::Horse => println!("Neigh"),
 //!         },
 //!
-//!         |request: ExampleRequest| match request {
+//!         |request: ExampleRequest, tx| match request {
 //!             ExampleRequest::DoAFrontflip => {
 //!                 println!("Doing a frontflip!");
-//!                 ExampleResponse::FrontflipOk
+//!                 tx.respond(Ok::<_, FrontflipError>(()))
 //!             },
 //!
 //!             ExampleRequest::DoABackflip => {
 //!                 println!("Doing a backflip!");
-//!                 ExampleResponse::BackflipOk
+//!                 tx.respond(Ok::<_, BackflipError>(()))
 //!             },
 //!         },
 //!     ).unwrap();
@@ -92,8 +90,8 @@
 //! tx.rpc(ExampleRpc::Pig).unwrap();
 //! tx.rpc(ExampleRpc::Cow).unwrap();
 //!
-//! let response = tx.request(ExampleRequest::DoABackflip).unwrap();
-//! assert_eq!(response, ExampleResponse::BackflipOk);
+//! let response: Result<(), BackflipError> = tx.request(ExampleRequest::DoABackflip).unwrap();
+//! assert_eq!(response, Ok(()));
 //! ```
 //!
 //! # Use Cases
@@ -147,6 +145,9 @@ pub use self::serde::Pipeable;
 
 mod os;
 use os::RawPipe;
+
+#[doc(hidden)]
+pub mod test;
 
 use interprocess::unnamed_pipe::{UnnamedPipeReader, UnnamedPipeWriter};
 use parking_lot::{Mutex, Condvar};

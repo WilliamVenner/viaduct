@@ -22,6 +22,38 @@ pub struct ViaductResponded(PhantomData<()>);
 pub struct ViaductResponse<'a>(&'a mut Vec<u8>);
 impl ViaductResponse<'_> {
 	/// Sends a response to the other side.
+	///
+	/// You can send whatever type you want, as long as it implements [`Pipeable`].
+	///
+	/// # Panics
+	///
+	/// This function won't panic, but the peer process will panic if you send a different type to what it was expecting.
+	///
+	/// # Example
+	///
+	/// ```no_run
+	/// # use viaduct::test::*;
+	/// # let rx = unsafe { viaduct::ViaductBuilder::child() }.unwrap().1;
+	/// rx.run(
+	///     |rpc: ExampleRpc| match rpc {
+	///         ExampleRpc::Cow => println!("Moo"),
+	///         ExampleRpc::Pig => println!("Oink"),
+	///         ExampleRpc::Horse => println!("Neigh"),
+	///     },
+	///
+	///     |request: ExampleRequest, tx| match request {
+	///         ExampleRequest::DoAFrontflip => {
+	///             println!("Doing a frontflip!");
+	///             tx.respond(Ok::<_, FrontflipError>(()))
+	///         },
+	///
+	///         ExampleRequest::DoABackflip => {
+	///             println!("Doing a backflip!");
+	///             tx.respond(Ok::<_, BackflipError>(()))
+	///         },
+	///     },
+	/// ).unwrap();
+	/// ```
 	#[must_use = "You must return this from your request handler"]
 	pub fn respond(self, response: impl Pipeable) -> ViaductResponded {
 		response.to_pipeable({
@@ -45,9 +77,15 @@ where
 {
 	/// Runs the event loop. This function will never return unless an error occurs.
 	///
+	/// # Panics
+	///
+	/// This function will panic if the peer process sends some data (RPC or request) and this process fails to deserialize it.
+	///
 	/// # Example
 	///
-	/// ```ignore
+	/// ```no_run
+	/// # use viaduct::test::*;
+	/// # let rx = unsafe { viaduct::ViaductBuilder::child() }.unwrap().1;
 	/// std::thread::spawn(move || {
 	///     rx.run(
 	///         |rpc: ExampleRpc| match rpc {
@@ -59,12 +97,12 @@ where
 	///         |request: ExampleRequest, tx| match request {
 	///             ExampleRequest::DoAFrontflip => {
 	///                 println!("Doing a frontflip!");
-	///                 ExampleResponse::FrontflipOk
+	///                 tx.respond(Ok::<_, FrontflipError>(()))
 	///             },
 	///
 	///             ExampleRequest::DoABackflip => {
 	///                 println!("Doing a backflip!");
-	///                 ExampleResponse::BackflipOk
+	///                 tx.respond(Ok::<_, BackflipError>(()))
 	///             },
 	///         },
 	///     ).unwrap();
@@ -156,6 +194,10 @@ where
 	Request: Pipeable,
 {
 	/// Sends an RPC to the peer process.
+	///
+	/// # Panics
+	///
+	/// This function won't panic, but the peer process will panic if the RPC is unable to be deserialized.
 	pub fn rpc(&self, rpc: Rpc) -> Result<(), std::io::Error> {
 		let mut state = self.0.state.lock();
 
@@ -176,6 +218,10 @@ where
 	/// Sends a request to the peer process and awaits a response.
 	///
 	/// Only one request can be made at a time by any thread. A single request will block all threads trying to send requests and RPCs.
+	///
+	/// # Panics
+	///
+	/// This function will panic if the peer process doesn't send the expected type (`Response`) as the response.
 	pub fn request<Response: Pipeable>(&self, request: Request) -> Result<Response, std::io::Error> {
 		let mut state = self.0.state.lock();
 

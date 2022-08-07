@@ -23,17 +23,17 @@ pub enum ExampleRequest {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
-pub enum ExampleResponse {
-    FrontflipOk,
-    BackflipOk,
-}
+pub struct FrontflipError;
+
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
+pub struct BackflipError;
 ```
 
 ## Parent process
 
-```rs
+```rust
 let child = std::process::Command::new("child.exe");
-let ((tx, rx), mut child) = viaduct::ViaductBuilder::parent(child).unwrap();
+let ((tx, rx), mut child) = viaduct::ViaductBuilder::parent(child).unwrap().build().unwrap();
 
 std::thread::spawn(move || {
     rx.run(
@@ -43,15 +43,15 @@ std::thread::spawn(move || {
             ExampleRpc::Horse => println!("Neigh"),
         },
 
-        |request: ExampleRequest| match request {
+        |request: ExampleRequest, tx| match request {
             ExampleRequest::DoAFrontflip => {
                 println!("Doing a frontflip!");
-                ExampleResponse::FrontflipOk
+                tx.respond(Ok::<_, FrontflipError>(()))
             },
 
             ExampleRequest::DoABackflip => {
                 println!("Doing a backflip!");
-                ExampleResponse::BackflipOk
+                tx.respond(Ok::<_, BackflipError>(()))
             },
         },
     ).unwrap();
@@ -61,14 +61,14 @@ tx.rpc(ExampleRpc::Cow).unwrap();
 tx.rpc(ExampleRpc::Pig).unwrap();
 tx.rpc(ExampleRpc::Horse).unwrap();
 
-let response = tx.request(ExampleRequest::DoAFrontflip).unwrap();
-assert_eq!(response, ExampleResponse::FrontflipOk);
+let response: Result<(), FrontflipError> = tx.request(ExampleRequest::DoAFrontflip).unwrap();
+assert_eq!(response, Ok(()));
 ```
 
 ## Child process
 
-```rs
-let (tx, rx) = viaduct::ViaductBuilder::child().unwrap();
+```rust
+let (tx, rx) = unsafe { viaduct::ViaductBuilder::child() }.unwrap();
 
 std::thread::spawn(move || {
     rx.run(
@@ -78,15 +78,15 @@ std::thread::spawn(move || {
             ExampleRpc::Horse => println!("Neigh"),
         },
 
-        |request: ExampleRequest| match request {
+        |request: ExampleRequest, tx| match request {
             ExampleRequest::DoAFrontflip => {
                 println!("Doing a frontflip!");
-                ExampleResponse::FrontflipOk
+                tx.respond(Ok::<_, FrontflipError>(()))
             },
 
             ExampleRequest::DoABackflip => {
                 println!("Doing a backflip!");
-                ExampleResponse::BackflipOk
+                tx.respond(Ok::<_, BackflipError>(()))
             },
         },
     ).unwrap();
@@ -96,8 +96,8 @@ tx.rpc(ExampleRpc::Horse).unwrap();
 tx.rpc(ExampleRpc::Pig).unwrap();
 tx.rpc(ExampleRpc::Cow).unwrap();
 
-let response = tx.request(ExampleRequest::DoABackflip).unwrap();
-assert_eq!(response, ExampleResponse::BackflipOk);
+let response: Result<(), BackflipError> = tx.request(ExampleRequest::DoABackflip).unwrap();
+assert_eq!(response, Ok(()));
 ```
 
 # Use Cases
