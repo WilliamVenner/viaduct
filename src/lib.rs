@@ -151,7 +151,7 @@ mod chan;
 pub use chan::*;
 
 mod serde;
-pub use self::serde::Pipeable;
+pub use self::serde::{Never, ViaductSerialize, ViaductDeserialize};
 
 mod os;
 use os::RawPipe;
@@ -181,10 +181,10 @@ impl std::error::Error for ChildError {}
 /// `RequestRx` is the type received from the peer process for requests. In the peer process' code, this would be `RequestTx`
 pub struct ViaductBuilder<RpcTx, RequestTx, RpcRx, RequestRx>
 where
-	RpcTx: Pipeable,
-	RequestTx: Pipeable,
-	RpcRx: Pipeable,
-	RequestRx: Pipeable,
+	RpcTx: ViaductSerialize,
+	RequestTx: ViaductSerialize,
+	RpcRx: ViaductDeserialize,
+	RequestRx: ViaductDeserialize,
 {
 	command: Command,
 	tx: ViaductTx<RpcTx, RequestTx, RpcRx, RequestRx>,
@@ -192,10 +192,10 @@ where
 }
 impl<RpcTx, RequestTx, RpcRx, RequestRx> ViaductBuilder<RpcTx, RequestTx, RpcRx, RequestRx>
 where
-	RpcTx: Pipeable,
-	RequestTx: Pipeable,
-	RpcRx: Pipeable,
-	RequestRx: Pipeable,
+	RpcTx: ViaductSerialize,
+	RequestTx: ViaductSerialize,
+	RpcRx: ViaductDeserialize,
+	RequestRx: ViaductDeserialize,
 {
 	/// Initializes a viaduct in the child process.
 	///
@@ -371,7 +371,13 @@ where
 			}
 		}
 
-		self.tx.0.state.lock().tx.write_all(chan::HELLO)?;
+		{
+			let mut tx = self.tx.0.state.lock();
+			let tx = &mut tx.tx;
+			tx.write_all(chan::HELLO)?;
+			tx.write_all(&u16::to_le_bytes(0x0102_u16))?;
+			tx.write_all(&u128::to_ne_bytes(core::mem::size_of::<usize>() as _))?;
+		}
 
 		let mut child = KillHandle(Some(self.command.spawn()?));
 
@@ -381,6 +387,25 @@ where
 			return Err(std::io::Error::new(
 				std::io::ErrorKind::BrokenPipe,
 				"Child process didn't respond with hello message",
+			));
+		}
+
+		let mut endianness = [0u8; core::mem::size_of::<u16>()];
+		self.rx.rx.read_exact(&mut endianness)?;
+		let endianness = u16::from_ne_bytes(endianness);
+		if endianness != 0x0102 {
+			return Err(std::io::Error::new(
+				std::io::ErrorKind::Unsupported,
+				"Child process is using a different endianness",
+			));
+		}
+
+		let mut usize_size = [0u8; core::mem::size_of::<u128>()];
+		self.rx.rx.read_exact(&mut usize_size)?;
+		if u128::from_ne_bytes(usize_size) != core::mem::size_of::<usize>() as u128 {
+			return Err(std::io::Error::new(
+				std::io::ErrorKind::Unsupported,
+				"Child process is running on a different architecture",
 			));
 		}
 

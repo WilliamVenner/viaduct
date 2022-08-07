@@ -1,73 +1,41 @@
 use std::sync::{Arc, Barrier};
 use std::{io::Write, process::Command};
-use viaduct::{Pipeable, ViaductTx};
-
-struct Shutdown;
-impl Pipeable for Shutdown {
-	type DeserializeError = std::convert::Infallible;
-	type SerializeError = std::convert::Infallible;
-
-	fn from_pipeable(_bytes: &[u8]) -> Result<Self, Self::DeserializeError> {
-		Ok(Self)
-	}
-
-	fn to_pipeable(&self, _buf: &mut Vec<u8>) -> Result<(), Self::SerializeError> {
-		Ok(())
-	}
-}
+use viaduct::{ViaductTx, ViaductSerialize, ViaductDeserialize};
 
 #[derive(Clone, Copy, Debug)]
 struct Add {
 	a: u32,
 	b: u32,
 }
-impl Pipeable for Add {
-	type DeserializeError = std::convert::Infallible;
-	type SerializeError = std::convert::Infallible;
+impl ViaductSerialize for Add {
+	type Error = std::convert::Infallible;
 
-	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::DeserializeError> {
-		Ok(Self {
-			a: u32::from_ne_bytes(bytes[0..4].try_into().unwrap()),
-			b: u32::from_ne_bytes(bytes[4..8].try_into().unwrap()),
-		})
-	}
-
-	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::SerializeError> {
+	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::Error> {
 		buf.write_all(&self.a.to_ne_bytes()).unwrap();
 		buf.write_all(&self.b.to_ne_bytes()).unwrap();
 		Ok(())
 	}
 }
+impl ViaductDeserialize for Add {
+	type Error = std::convert::Infallible;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct AddResult {
-	result: u32,
-}
-impl Pipeable for AddResult {
-	type DeserializeError = std::convert::Infallible;
-	type SerializeError = std::convert::Infallible;
-
-	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::DeserializeError> {
+	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::Error> {
 		Ok(Self {
-			result: u32::from_ne_bytes(bytes[0..4].try_into().unwrap()),
+			a: u32::from_ne_bytes(bytes[0..4].try_into().unwrap()),
+			b: u32::from_ne_bytes(bytes[4..8].try_into().unwrap()),
 		})
 	}
-
-	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::SerializeError> {
-		buf.write_all(&self.result.to_ne_bytes()).unwrap();
-		Ok(())
-	}
 }
 
-const MATH_PROBLEMS: &[(Add, AddResult)] = &[
-	(Add { a: 1, b: 2 }, AddResult { result: 3 }),
-	(Add { a: 3, b: 4 }, AddResult { result: 7 }),
-	(Add { a: 5, b: 6 }, AddResult { result: 11 }),
-	(Add { a: 7, b: 8 }, AddResult { result: 15 }),
-	(Add { a: 9, b: 10 }, AddResult { result: 19 }),
+const MATH_PROBLEMS: &[(Add, u32)] = &[
+	(Add { a: 1, b: 2 }, 3),
+	(Add { a: 3, b: 4 }, 7),
+	(Add { a: 5, b: 6 }, 11),
+	(Add { a: 7, b: 8 }, 15),
+	(Add { a: 9, b: 10 }, 19),
 ];
 
-fn parallel_maths<RpcTx: Pipeable + Send + Sync + 'static, RpcRx: Pipeable + Send + Sync + 'static>(tx: ViaductTx<RpcTx, Add, RpcRx, Add>) {
+fn parallel_maths<RpcTx: ViaductSerialize + Send + Sync + 'static, RpcRx: ViaductDeserialize + Send + Sync + 'static>(tx: ViaductTx<RpcTx, Add, RpcRx, Add>) {
 	let mut threads = Vec::with_capacity(MATH_PROBLEMS.len());
 	let barrier = Arc::new(Barrier::new(MATH_PROBLEMS.len()));
 	for (problem, answer) in MATH_PROBLEMS {
@@ -75,7 +43,7 @@ fn parallel_maths<RpcTx: Pipeable + Send + Sync + 'static, RpcRx: Pipeable + Sen
 		let barrier = barrier.clone();
 		threads.push(std::thread::spawn(move || {
 			barrier.wait();
-			assert_eq!(tx.request::<AddResult>(*problem).unwrap(), *answer);
+			assert_eq!(tx.request::<u32>(*problem).unwrap(), *answer);
 			println!("[{}] {problem:?} = {answer:?}", std::process::id());
 		}));
 	}
@@ -92,7 +60,7 @@ fn main() {
 		std::process::exit(1);
 	});
 
-	let named_thread = match unsafe { viaduct::ViaductBuilder::<Shutdown, Add, Shutdown, Add>::child_with_args() } {
+	let named_thread = match unsafe { viaduct::ViaductBuilder::<(), Add, (), Add>::child_with_args() } {
 		// We're the parent process
 		Err(_) => std::thread::Builder::new()
 			.name("parent".to_string())
@@ -100,7 +68,7 @@ fn main() {
 				println!("parent pid {:?}", std::process::id());
 
 				let ((tx, rx), mut child) =
-					viaduct::ViaductBuilder::<Shutdown, Add, Shutdown, Add>::parent(Command::new(std::env::current_exe().unwrap()))
+					viaduct::ViaductBuilder::<(), Add, (), Add>::parent(Command::new(std::env::current_exe().unwrap()))
 						.unwrap()
 						.arg("Viaduct test!")
 						.build()
@@ -116,9 +84,7 @@ fn main() {
 								shutdown_tx.try_send(()).unwrap();
 							},
 							|request, tx| {
-								tx.respond(AddResult {
-									result: request.a + request.b,
-								})
+								tx.respond(request.a + request.b)
 							},
 						)
 						.unwrap();
@@ -126,7 +92,7 @@ fn main() {
 					.unwrap();
 
 				parallel_maths(tx.clone());
-				tx.rpc(Shutdown).unwrap();
+				tx.rpc(()).unwrap();
 
 				shutdown_rx.recv().unwrap();
 
@@ -153,9 +119,7 @@ fn main() {
 									shutdown_tx.try_send(()).unwrap();
 								},
 								|request, tx| {
-									tx.respond(AddResult {
-										result: request.a + request.b,
-									})
+									tx.respond(request.a + request.b)
 								},
 							)
 							.unwrap();
@@ -163,7 +127,7 @@ fn main() {
 						.unwrap();
 
 					parallel_maths(tx.clone());
-					tx.rpc(Shutdown).unwrap();
+					tx.rpc(()).unwrap();
 
 					shutdown_rx.recv().unwrap();
 				})

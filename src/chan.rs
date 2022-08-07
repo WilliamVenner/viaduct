@@ -1,4 +1,4 @@
-use crate::serde::Pipeable;
+use crate::serde::{ViaductSerialize, ViaductDeserialize};
 use interprocess::unnamed_pipe::{UnnamedPipeReader, UnnamedPipeWriter};
 use parking_lot::{Condvar, Mutex};
 use std::{
@@ -59,7 +59,7 @@ impl ViaductResponse<'_> {
 	/// ).unwrap();
 	/// ```
 	#[must_use = "You must return this from your request handler"]
-	pub fn respond(self, response: impl Pipeable) -> ViaductResponded {
+	pub fn respond(self, response: impl ViaductSerialize) -> ViaductResponded {
 		response
 			.to_pipeable({
 				self.0.clear();
@@ -80,10 +80,10 @@ pub struct ViaductRx<RpcTx, RequestTx, RpcRx, RequestRx> {
 }
 impl<RpcTx, RequestTx, RpcRx, RequestRx> ViaductRx<RpcTx, RequestTx, RpcRx, RequestRx>
 where
-	RpcTx: Pipeable,
-	RpcRx: Pipeable,
-	RequestTx: Pipeable,
-	RequestRx: Pipeable,
+	RpcTx: ViaductSerialize,
+	RpcRx: ViaductDeserialize,
+	RequestTx: ViaductSerialize,
+	RequestRx: ViaductDeserialize,
 {
 	/// Runs the event loop. This function will never return unless an error occurs.
 	///
@@ -221,10 +221,10 @@ pub(super) struct ViaductTxState<RpcTx, RequestTx, RpcRx, RequestRx> {
 }
 impl<RpcTx, RequestTx, RpcRx, RequestRx> ViaductTxState<RpcTx, RequestTx, RpcRx, RequestRx>
 where
-	RpcTx: Pipeable,
-	RpcRx: Pipeable,
-	RequestTx: Pipeable,
-	RequestRx: Pipeable,
+	RpcTx: ViaductSerialize,
+	RpcRx: ViaductDeserialize,
+	RequestTx: ViaductSerialize,
+	RequestRx: ViaductDeserialize,
 {
 	#[inline]
 	pub(super) fn new(tx: UnnamedPipeWriter) -> Self {
@@ -238,10 +238,10 @@ where
 
 impl<RpcTx, RequestTx, RpcRx, RequestRx> ViaductTx<RpcTx, RequestTx, RpcRx, RequestRx>
 where
-	RpcTx: Pipeable,
-	RpcRx: Pipeable,
-	RequestTx: Pipeable,
-	RequestRx: Pipeable,
+	RpcTx: ViaductSerialize,
+	RpcRx: ViaductDeserialize,
+	RequestTx: ViaductSerialize,
+	RequestRx: ViaductDeserialize,
 {
 	/// Sends an RPC to the peer process.
 	///
@@ -273,7 +273,7 @@ where
 	/// # Panics
 	///
 	/// This function will panic if the peer process doesn't send the expected type (`Response`) as the response.
-	pub fn request<Response: Pipeable>(&self, request: RequestTx) -> Result<Response, std::io::Error> {
+	pub fn request<Response: ViaductDeserialize>(&self, request: RequestTx) -> Result<Response, std::io::Error> {
 		let mut response = self.0.response.lock();
 
 		// Get a request ID
@@ -314,10 +314,10 @@ where
 }
 impl<RpcTx, RequestTx, RpcRx, RequestRx> Clone for ViaductTx<RpcTx, RequestTx, RpcRx, RequestRx>
 where
-	RpcTx: Pipeable,
-	RpcRx: Pipeable,
-	RequestTx: Pipeable,
-	RequestRx: Pipeable,
+	RpcTx: ViaductSerialize,
+	RpcRx: ViaductDeserialize,
+	RequestTx: ViaductSerialize,
+	RequestRx: ViaductDeserialize,
 {
 	#[inline]
 	fn clone(&self) -> Self {

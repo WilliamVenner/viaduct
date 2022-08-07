@@ -8,7 +8,7 @@ Viaduct is a library for establishing a duplex communication channel between a p
 
 ## Shared library
 
-```rs
+```rust
 #[derive(Serialize, Deserialize)]
 pub enum ExampleRpc {
     Cow,

@@ -16,53 +16,73 @@ pub enum ExampleRequest {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Result<T, E> {
-	Ok(T),
-	Err(E),
-}
-pub use self::Result::{Err, Ok};
-
-#[derive(Debug, PartialEq, Eq)]
 pub struct FrontflipError;
+impl super::ViaductSerialize for FrontflipError {
+	type Error = std::convert::Infallible;
+
+	#[inline]
+	fn to_pipeable(&self, buf: &mut Vec<u8>) -> std::result::Result<(), Self::Error> {
+		unimplemented!()
+	}
+}
+impl super::ViaductDeserialize for FrontflipError {
+	type Error = std::convert::Infallible;
+
+	#[inline]
+	fn from_pipeable(bytes: &[u8]) -> std::result::Result<Self, Self::Error> {
+		unimplemented!()
+	}
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct BackflipError;
+impl super::ViaductSerialize for BackflipError {
+	type Error = std::convert::Infallible;
 
-impl<T, E> super::serde::Pipeable for Result<T, E> {
-	type SerializeError = std::convert::Infallible;
-	type DeserializeError = std::convert::Infallible;
-
-	fn to_pipeable(&self, buf: &mut Vec<u8>) -> std::result::Result<(), Self::SerializeError> {
+	#[inline]
+	fn to_pipeable(&self, buf: &mut Vec<u8>) -> std::result::Result<(), Self::Error> {
 		unimplemented!()
 	}
+}
+impl super::ViaductDeserialize for BackflipError {
+	type Error = std::convert::Infallible;
 
-	fn from_pipeable(bytes: &[u8]) -> std::result::Result<Self, Self::DeserializeError> {
+	#[inline]
+	fn from_pipeable(bytes: &[u8]) -> std::result::Result<Self, Self::Error> {
 		unimplemented!()
 	}
 }
 
-impl super::serde::Pipeable for ExampleRpc {
-	type SerializeError = std::convert::Infallible;
-	type DeserializeError = std::convert::Infallible;
+impl super::ViaductSerialize for ExampleRpc {
+	type Error = std::convert::Infallible;
 
-	fn to_pipeable(&self, buf: &mut Vec<u8>) -> std::result::Result<(), Self::SerializeError> {
+	#[inline]
+	fn to_pipeable(&self, buf: &mut Vec<u8>) -> std::result::Result<(), Self::Error> {
 		unimplemented!()
 	}
+}
+impl super::ViaductDeserialize for ExampleRpc {
+	type Error = std::convert::Infallible;
 
-	fn from_pipeable(bytes: &[u8]) -> std::result::Result<Self, Self::DeserializeError> {
+	#[inline]
+	fn from_pipeable(bytes: &[u8]) -> std::result::Result<Self, Self::Error> {
 		unimplemented!()
 	}
 }
 
-impl super::serde::Pipeable for ExampleRequest {
-	type SerializeError = std::convert::Infallible;
-	type DeserializeError = std::convert::Infallible;
+impl super::ViaductSerialize for ExampleRequest {
+	type Error = std::convert::Infallible;
 
-	fn to_pipeable(&self, buf: &mut Vec<u8>) -> std::result::Result<(), Self::SerializeError> {
+	#[inline]
+	fn to_pipeable(&self, buf: &mut Vec<u8>) -> std::result::Result<(), Self::Error> {
 		unimplemented!()
 	}
+}
+impl super::ViaductDeserialize for ExampleRequest {
+	type Error = std::convert::Infallible;
 
-	fn from_pipeable(bytes: &[u8]) -> std::result::Result<Self, Self::DeserializeError> {
+	#[inline]
+	fn from_pipeable(bytes: &[u8]) -> std::result::Result<Self, Self::Error> {
 		unimplemented!()
 	}
 }
