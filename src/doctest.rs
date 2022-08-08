@@ -2,7 +2,7 @@
 
 #![allow(unused)]
 
-use crate::{ViaductSerialize, ViaductDeserialize};
+use crate::{ViaductDeserialize, ViaductSerialize};
 
 #[derive(Debug)]
 pub enum ExampleRpc {
@@ -20,9 +20,9 @@ pub enum ExampleRequest {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Result<T, E> {
 	Ok(T),
-	Err(E)
+	Err(E),
 }
-pub use self::Result::{Ok, Err};
+pub use self::Result::{Err, Ok};
 
 impl<T, E> ViaductSerialize for self::Result<T, E> {
 	type Error = std::convert::Infallible;
