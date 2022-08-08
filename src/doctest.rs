@@ -2,6 +2,8 @@
 
 #![allow(unused)]
 
+use crate::{ViaductSerialize, ViaductDeserialize};
+
 #[derive(Debug)]
 pub enum ExampleRpc {
 	Cow,
@@ -16,8 +18,13 @@ pub enum ExampleRequest {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct FrontflipError;
-impl super::ViaductSerialize for FrontflipError {
+pub enum Result<T, E> {
+	Ok(T),
+	Err(E)
+}
+pub use self::Result::{Ok, Err};
+
+impl<T, E> ViaductSerialize for self::Result<T, E> {
 	type Error = std::convert::Infallible;
 
 	#[inline]
@@ -25,7 +32,26 @@ impl super::ViaductSerialize for FrontflipError {
 		unimplemented!()
 	}
 }
-impl super::ViaductDeserialize for FrontflipError {
+impl<T, E> ViaductDeserialize for self::Result<T, E> {
+	type Error = std::convert::Infallible;
+
+	#[inline]
+	fn from_pipeable(bytes: &[u8]) -> std::result::Result<Self, Self::Error> {
+		unimplemented!()
+	}
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct FrontflipError;
+impl ViaductSerialize for FrontflipError {
+	type Error = std::convert::Infallible;
+
+	#[inline]
+	fn to_pipeable(&self, buf: &mut Vec<u8>) -> std::result::Result<(), Self::Error> {
+		unimplemented!()
+	}
+}
+impl ViaductDeserialize for FrontflipError {
 	type Error = std::convert::Infallible;
 
 	#[inline]
@@ -36,7 +62,7 @@ impl super::ViaductDeserialize for FrontflipError {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct BackflipError;
-impl super::ViaductSerialize for BackflipError {
+impl ViaductSerialize for BackflipError {
 	type Error = std::convert::Infallible;
 
 	#[inline]
@@ -44,7 +70,7 @@ impl super::ViaductSerialize for BackflipError {
 		unimplemented!()
 	}
 }
-impl super::ViaductDeserialize for BackflipError {
+impl ViaductDeserialize for BackflipError {
 	type Error = std::convert::Infallible;
 
 	#[inline]
@@ -53,7 +79,7 @@ impl super::ViaductDeserialize for BackflipError {
 	}
 }
 
-impl super::ViaductSerialize for ExampleRpc {
+impl ViaductSerialize for ExampleRpc {
 	type Error = std::convert::Infallible;
 
 	#[inline]
@@ -61,7 +87,7 @@ impl super::ViaductSerialize for ExampleRpc {
 		unimplemented!()
 	}
 }
-impl super::ViaductDeserialize for ExampleRpc {
+impl ViaductDeserialize for ExampleRpc {
 	type Error = std::convert::Infallible;
 
 	#[inline]
@@ -70,7 +96,7 @@ impl super::ViaductDeserialize for ExampleRpc {
 	}
 }
 
-impl super::ViaductSerialize for ExampleRequest {
+impl ViaductSerialize for ExampleRequest {
 	type Error = std::convert::Infallible;
 
 	#[inline]
@@ -78,7 +104,7 @@ impl super::ViaductSerialize for ExampleRequest {
 		unimplemented!()
 	}
 }
-impl super::ViaductDeserialize for ExampleRequest {
+impl ViaductDeserialize for ExampleRequest {
 	type Error = std::convert::Infallible;
 
 	#[inline]

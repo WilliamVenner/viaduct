@@ -39,12 +39,12 @@
 //!         |request: ExampleRequest, tx| match request {
 //!             ExampleRequest::DoAFrontflip => {
 //!                 println!("Doing a frontflip!");
-//!                 tx.respond(Ok::<_, FrontflipError>(()))
+//!                 tx.respond(Ok::<_, FrontflipError>(())).unwrap();
 //!             },
 //!
 //!             ExampleRequest::DoABackflip => {
 //!                 println!("Doing a backflip!");
-//!                 tx.respond(Ok::<_, BackflipError>(()))
+//!                 tx.respond(Ok::<_, BackflipError>(())).unwrap();
 //!             },
 //!         },
 //!     ).unwrap();
@@ -75,12 +75,12 @@
 //!         |request: ExampleRequest, tx| match request {
 //!             ExampleRequest::DoAFrontflip => {
 //!                 println!("Doing a frontflip!");
-//!                 tx.respond(Ok::<_, FrontflipError>(()))
+//!                 tx.respond(Ok::<_, FrontflipError>(())).unwrap();
 //!             },
 //!
 //!             ExampleRequest::DoABackflip => {
 //!                 println!("Doing a backflip!");
-//!                 tx.respond(Ok::<_, BackflipError>(()))
+//!                 tx.respond(Ok::<_, BackflipError>(())).unwrap();
 //!             },
 //!         },
 //!     ).unwrap();
