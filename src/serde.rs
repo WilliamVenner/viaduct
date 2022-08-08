@@ -38,7 +38,7 @@ impl ViaductDeserialize for Never {
 
 #[cfg(feature = "bincode")]
 mod bincode {
-	use super::{ViaductSerialize, ViaductDeserialize};
+	use super::{ViaductDeserialize, ViaductSerialize};
 
 	impl<T: serde::Serialize> ViaductSerialize for T {
 		type Error = bincode::Error;
@@ -60,7 +60,7 @@ mod bincode {
 
 #[cfg(feature = "speedy")]
 mod speedy {
-	use super::{ViaductSerialize, ViaductDeserialize};
+	use super::{ViaductDeserialize, ViaductSerialize};
 
 	#[cfg(target_endian = "little")]
 	type SpeedyEndian = speedy::LittleEndian;

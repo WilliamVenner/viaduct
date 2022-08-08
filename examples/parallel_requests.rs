@@ -1,6 +1,6 @@
 use std::sync::{Arc, Barrier};
 use std::{io::Write, process::Command};
-use viaduct::{ViaductTx, ViaductSerialize, ViaductDeserialize};
+use viaduct::{ViaductDeserialize, ViaductSerialize, ViaductTx};
 
 #[derive(Clone, Copy, Debug)]
 struct Add {
@@ -35,7 +35,9 @@ const MATH_PROBLEMS: &[(Add, u32)] = &[
 	(Add { a: 9, b: 10 }, 19),
 ];
 
-fn parallel_maths<RpcTx: ViaductSerialize + Send + Sync + 'static, RpcRx: ViaductDeserialize + Send + Sync + 'static>(tx: ViaductTx<RpcTx, Add, RpcRx, Add>) {
+fn parallel_maths<RpcTx: ViaductSerialize + Send + Sync + 'static, RpcRx: ViaductDeserialize + Send + Sync + 'static>(
+	tx: ViaductTx<RpcTx, Add, RpcRx, Add>,
+) {
 	let mut threads = Vec::with_capacity(MATH_PROBLEMS.len());
 	let barrier = Arc::new(Barrier::new(MATH_PROBLEMS.len()));
 	for (problem, answer) in MATH_PROBLEMS {
@@ -67,12 +69,11 @@ fn main() {
 			.spawn(|| {
 				println!("parent pid {:?}", std::process::id());
 
-				let ((tx, rx), mut child) =
-					viaduct::ViaductBuilder::<(), Add, (), Add>::parent(Command::new(std::env::current_exe().unwrap()))
-						.unwrap()
-						.arg("Viaduct test!")
-						.build()
-						.unwrap();
+				let ((tx, rx), mut child) = viaduct::ViaductBuilder::<(), Add, (), Add>::parent(Command::new(std::env::current_exe().unwrap()))
+					.unwrap()
+					.arg("Viaduct test!")
+					.build()
+					.unwrap();
 
 				let (shutdown_tx, shutdown_rx) = std::sync::mpsc::sync_channel(1);
 

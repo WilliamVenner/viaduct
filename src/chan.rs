@@ -26,7 +26,7 @@ where
 	RpcTx: ViaductSerialize,
 	RequestTx: ViaductSerialize,
 	RpcRx: ViaductDeserialize,
-	RequestRx: ViaductDeserialize
+	RequestRx: ViaductDeserialize,
 {
 	/// Sends a response to the other side.
 	///
@@ -169,7 +169,10 @@ where
 
 					request_handler(
 						RequestRx::from_pipeable(&self.buf).expect("Failed to deserialize RequestRx"),
-						ViaductResponse { tx: self.tx.clone(), request_id },
+						ViaductResponse {
+							tx: self.tx.clone(),
+							request_id,
+						},
 					);
 				}
 
