@@ -17,7 +17,8 @@ overflow-checks = true
 debug-assertions = true
 
 [features]
-default = []
+default = ["bytemuck"]
+bytemuck = ["dep:bytemuck"]
 speedy = ["dep:speedy"]
 bincode = ["dep:bincode", "dep:serde"]
 
@@ -28,6 +29,7 @@ uuid = { version = "1", features = ["v4"] }
 serde = { version = "1", optional = true }
 bincode = { version = "1", optional = true }
 speedy = { version = "0.8", optional = true }
+bytemuck = { version = "1", optional = true }
 
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }

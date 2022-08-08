@@ -148,96 +148,108 @@ struct DummyResponseParentToChild {
 use std::io::Write;
 
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::Pipeable for DummyRpcParentToChild {
-	type SerializeError = std::convert::Infallible;
-	type DeserializeError = std::convert::Infallible;
+impl viaduct::ViaductSerialize for DummyRpcParentToChild {
+	type Error = std::convert::Infallible;
 
-	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::SerializeError> {
+	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::Error> {
 		buf.write_all(&[self.magic]).unwrap();
 		Ok(())
 	}
+}
+impl viaduct::ViaductDeserialize for DummyRpcParentToChild {
+	type Error = std::convert::Infallible;
 
-	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::DeserializeError> {
+	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::Error> {
 		assert_eq!(bytes.len(), 1);
 		Ok(Self { magic: bytes[0] })
 	}
 }
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::Pipeable for DummyRpcChildToParent {
-	type SerializeError = std::convert::Infallible;
-	type DeserializeError = std::convert::Infallible;
+impl viaduct::ViaductSerialize for DummyRpcChildToParent {
+	type Error = std::convert::Infallible;
 
-	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::SerializeError> {
+	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::Error> {
 		buf.write_all(&self.magic.to_ne_bytes()).unwrap();
 		Ok(())
 	}
+}
+impl viaduct::ViaductDeserialize for DummyRpcChildToParent {
+	type Error = std::convert::Infallible;
 
-	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::DeserializeError> {
+	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::Error> {
 		Ok(Self {
 			magic: u16::from_ne_bytes(bytes.try_into().unwrap()),
 		})
 	}
 }
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::Pipeable for DummyRequestParentToChild {
-	type SerializeError = std::convert::Infallible;
-	type DeserializeError = std::convert::Infallible;
+impl viaduct::ViaductSerialize for DummyRequestParentToChild {
+	type Error = std::convert::Infallible;
 
-	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::SerializeError> {
+	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::Error> {
 		buf.write_all(&self.magic.to_ne_bytes()).unwrap();
 		Ok(())
 	}
+}
+impl viaduct::ViaductDeserialize for DummyRequestParentToChild {
+	type Error = std::convert::Infallible;
 
-	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::DeserializeError> {
+	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::Error> {
 		Ok(Self {
 			magic: u32::from_ne_bytes(bytes.try_into().unwrap()),
 		})
 	}
 }
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::Pipeable for DummyRequestChildToParent {
-	type SerializeError = std::convert::Infallible;
-	type DeserializeError = std::convert::Infallible;
+impl viaduct::ViaductSerialize for DummyRequestChildToParent {
+	type Error = std::convert::Infallible;
 
-	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::SerializeError> {
+	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::Error> {
 		buf.write_all(&self.magic.to_ne_bytes()).unwrap();
 		Ok(())
 	}
+}
+impl viaduct::ViaductDeserialize for DummyRequestChildToParent {
+	type Error = std::convert::Infallible;
 
-	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::DeserializeError> {
+	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::Error> {
 		Ok(Self {
 			magic: u64::from_ne_bytes(bytes.try_into().unwrap()),
 		})
 	}
 }
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::Pipeable for DummyResponseChildToParent {
-	type SerializeError = std::convert::Infallible;
-	type DeserializeError = std::convert::Infallible;
+impl viaduct::ViaductSerialize for DummyResponseChildToParent {
+	type Error = std::convert::Infallible;
 
-	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::SerializeError> {
+	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::Error> {
 		buf.write_all(&self.magic.to_ne_bytes()).unwrap();
 		Ok(())
 	}
+}
+impl viaduct::ViaductDeserialize for DummyResponseChildToParent {
+	type Error = std::convert::Infallible;
 
-	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::DeserializeError> {
+	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::Error> {
 		Ok(Self {
 			magic: u128::from_ne_bytes(bytes.try_into().unwrap()),
 		})
 	}
 }
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::Pipeable for DummyResponseParentToChild {
-	type SerializeError = std::convert::Infallible;
-	type DeserializeError = std::convert::Infallible;
+impl viaduct::ViaductSerialize for DummyResponseParentToChild {
+	type Error = std::convert::Infallible;
 
-	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::SerializeError> {
+	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::Error> {
 		buf.write_all(&self.magic.0.to_ne_bytes()).unwrap();
 		buf.write_all(&self.magic.1.to_ne_bytes()).unwrap();
 		Ok(())
 	}
+}
+impl viaduct::ViaductDeserialize for DummyResponseParentToChild {
+	type Error = std::convert::Infallible;
 
-	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::DeserializeError> {
+	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::Error> {
 		Ok(Self {
 			magic: (u128::from_ne_bytes(bytes[0..16].try_into().unwrap()), bytes[16]),
 		})

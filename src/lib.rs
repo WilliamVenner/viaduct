@@ -106,9 +106,9 @@
 //!
 //! ## Serialization
 //!
-//! Viaduct currently supports serialization and deserialization of data using [`bincode`](https://docs.rs/bincode) or [`speedy`](https://docs.rs/speedy) at your choice, using the respective Cargo feature flags.
+//! Viaduct currently supports serialization and deserialization of data using [`bytemuck`](https://docs.rs/bytemuck) (default), [`bincode`](https://docs.rs/bincode) or [`speedy`](https://docs.rs/speedy) at your choice, using the respective Cargo feature flags.
 //!
-//! You can also manually implement the [`Pipeable`] trait.
+//! You can also manually implement the [`ViaductSerialize`] and [`ViaductDeserialize`] traits.
 //!
 //! ## Initializing a viaduct
 //!
@@ -151,7 +151,7 @@ mod chan;
 pub use chan::*;
 
 mod serde;
-pub use self::serde::{Never, ViaductSerialize, ViaductDeserialize};
+pub use self::serde::{Never, ViaductDeserialize, ViaductSerialize};
 
 mod os;
 use os::RawPipe;
@@ -207,7 +207,7 @@ where
 	///
 	/// * Manipulating the program's arguments in a way that disrupts Viaduct's handle exchange.
 	/// * Mixing 32-bit and 64-bit parent and child
-	pub unsafe fn child() -> Result<Viaduct<RpcTx, RequestTx, RpcRx, RequestRx>, ChildError> {
+	pub unsafe fn child() -> Result<Viaduct<RpcTx, RequestTx, RpcRx, RequestRx>, std::io::Error> {
 		let mut args = std::env::args_os();
 		{
 			let sig = OsStr::new("PIPER_START");
@@ -219,7 +219,7 @@ where
 				}
 			}
 			if !sig_found {
-				return Err(ChildError);
+				return Err(std::io::Error::new(std::io::ErrorKind::BrokenPipe, "Could not find pipe handles"));
 			}
 		}
 
@@ -229,7 +229,7 @@ where
 			.and_then(|pipes| Some((pipes.0.to_str()?.parse::<u64>().ok()?, pipes.1.to_str()?.parse::<u64>().ok()?)))
 		{
 			Some(pipes) => pipes,
-			_ => return Err(ChildError),
+			_ => return Err(std::io::Error::new(std::io::ErrorKind::BrokenPipe, "Could not parse pipe handles")),
 		};
 
 		Ok(unsafe { Self::child_handshake(parent_w, child_r)? })
@@ -245,7 +245,7 @@ where
 	///
 	/// * Manipulating the program's arguments in a way that disrupts Viaduct's handle exchange.
 	/// * Mixing 32-bit and 64-bit parent and child
-	pub unsafe fn child_with_args_os() -> Result<(Viaduct<RpcTx, RequestTx, RpcRx, RequestRx>, impl Iterator<Item = OsString>), ChildError> {
+	pub unsafe fn child_with_args_os() -> Result<(Viaduct<RpcTx, RequestTx, RpcRx, RequestRx>, impl Iterator<Item = OsString>), std::io::Error> {
 		let mut args = std::env::args_os();
 		let mut buffer = Vec::with_capacity(1);
 
@@ -260,7 +260,7 @@ where
 				buffer.push(arg);
 			}
 			if !sig_found {
-				return Err(ChildError);
+				return Err(std::io::Error::new(std::io::ErrorKind::BrokenPipe, "Could not find pipe handles"));
 			}
 		}
 
@@ -270,7 +270,7 @@ where
 			.and_then(|pipes| Some((pipes.0.to_str()?.parse::<u64>().ok()?, pipes.1.to_str()?.parse::<u64>().ok()?)))
 		{
 			Some(pipes) => pipes,
-			_ => return Err(ChildError),
+			_ => return Err(std::io::Error::new(std::io::ErrorKind::BrokenPipe, "Could not parse pipe handles")),
 		};
 
 		Ok((unsafe { Self::child_handshake(parent_w, child_r)? }, buffer.into_iter().chain(args)))
@@ -290,7 +290,7 @@ where
 	///
 	/// * Manipulating the program's arguments in a way that disrupts Viaduct's handle exchange.
 	/// * Mixing 32-bit and 64-bit parent and child
-	pub unsafe fn child_with_args() -> Result<(Viaduct<RpcTx, RequestTx, RpcRx, RequestRx>, impl Iterator<Item = String>), ChildError> {
+	pub unsafe fn child_with_args() -> Result<(Viaduct<RpcTx, RequestTx, RpcRx, RequestRx>, impl Iterator<Item = String>), std::io::Error> {
 		let mut args = std::env::args();
 		let mut buffer = Vec::with_capacity(1);
 
@@ -304,7 +304,7 @@ where
 				buffer.push(arg);
 			}
 			if !sig_found {
-				return Err(ChildError);
+				return Err(std::io::Error::new(std::io::ErrorKind::BrokenPipe, "Could not find pipe handles"));
 			}
 		}
 
@@ -314,7 +314,7 @@ where
 			.and_then(|pipes| Some((pipes.0.parse::<u64>().ok()?, pipes.1.parse::<u64>().ok()?)))
 		{
 			Some(pipes) => pipes,
-			_ => return Err(ChildError),
+			_ => return Err(std::io::Error::new(std::io::ErrorKind::BrokenPipe, "Could not parse pipe handles")),
 		};
 
 		Ok((unsafe { Self::child_handshake(parent_w, child_r)? }, buffer.into_iter().chain(args)))
@@ -371,18 +371,27 @@ where
 			}
 		}
 
-		{
-			let mut tx = self.tx.0.state.lock();
-			let tx = &mut tx.tx;
-			tx.write_all(chan::HELLO)?;
-			tx.write_all(&u16::to_le_bytes(0x0102_u16))?;
-			tx.write_all(&u128::to_ne_bytes(core::mem::size_of::<usize>() as _))?;
-		}
+		let mut child = Self::verify_channel(&mut self.tx.0.state.lock().tx, &mut self.rx.rx, move || {
+			Ok(KillHandle(Some(self.command.spawn()?)))
+		})?;
 
-		let mut child = KillHandle(Some(self.command.spawn()?));
+		Ok(((self.tx, self.rx), child.0.take().unwrap()))
+	}
+
+	#[inline]
+	fn verify_channel<R, F: FnOnce() -> Result<R, std::io::Error>>(
+		tx: &mut UnnamedPipeWriter,
+		rx: &mut UnnamedPipeReader,
+		ready: F,
+	) -> Result<R, std::io::Error> {
+		tx.write_all(chan::HELLO)?;
+		tx.write_all(&u16::to_ne_bytes(dbg!(0x0102_u16)))?;
+		tx.write_all(&u128::to_ne_bytes(core::mem::size_of::<usize>() as _))?;
+
+		let ready = ready()?;
 
 		let mut hello = [0u8; chan::HELLO.len()];
-		self.rx.rx.read_exact(&mut hello)?;
+		rx.read_exact(&mut hello)?;
 		if hello != chan::HELLO {
 			return Err(std::io::Error::new(
 				std::io::ErrorKind::BrokenPipe,
@@ -391,9 +400,9 @@ where
 		}
 
 		let mut endianness = [0u8; core::mem::size_of::<u16>()];
-		self.rx.rx.read_exact(&mut endianness)?;
+		rx.read_exact(&mut endianness)?;
 		let endianness = u16::from_ne_bytes(endianness);
-		if endianness != 0x0102 {
+		if endianness != 0x0102_u16 {
 			return Err(std::io::Error::new(
 				std::io::ErrorKind::Unsupported,
 				"Child process is using a different endianness",
@@ -401,7 +410,7 @@ where
 		}
 
 		let mut usize_size = [0u8; core::mem::size_of::<u128>()];
-		self.rx.rx.read_exact(&mut usize_size)?;
+		rx.read_exact(&mut usize_size)?;
 		if u128::from_ne_bytes(usize_size) != core::mem::size_of::<usize>() as u128 {
 			return Err(std::io::Error::new(
 				std::io::ErrorKind::Unsupported,
@@ -409,7 +418,7 @@ where
 			));
 		}
 
-		Ok(((self.tx, self.rx), unsafe { child.0.take().unwrap_unchecked() }))
+		Ok(ready)
 	}
 
 	fn channel(tx: UnnamedPipeWriter, rx: UnnamedPipeReader) -> Viaduct<RpcTx, RequestTx, RpcRx, RequestRx> {
@@ -427,24 +436,13 @@ where
 		(tx, rx)
 	}
 
-	unsafe fn child_handshake(parent_w: u64, child_r: u64) -> Result<Viaduct<RpcTx, RequestTx, RpcRx, RequestRx>, ChildError> {
+	unsafe fn child_handshake(parent_w: u64, child_r: u64) -> Result<Viaduct<RpcTx, RequestTx, RpcRx, RequestRx>, std::io::Error> {
 		let parent_w = unsafe { UnnamedPipeWriter::from_raw(parent_w as _) };
 		let child_r = unsafe { UnnamedPipeReader::from_raw(child_r as _) };
 
 		let (tx, mut rx) = Self::channel(parent_w, child_r);
 
-		if tx.0.state.lock().tx.write_all(chan::HELLO).is_err() {
-			return Err(ChildError);
-		}
-
-		let mut hello = [0u8; chan::HELLO.len()];
-		if rx.rx.read_exact(&mut hello).is_err() {
-			return Err(ChildError);
-		}
-
-		if hello != chan::HELLO {
-			return Err(ChildError);
-		}
+		Self::verify_channel(&mut tx.0.state.lock().tx, &mut rx.rx, || Ok(()))?;
 
 		Ok((tx, rx))
 	}

@@ -19,7 +19,7 @@ pub type Viaduct<RpcTx, RequestTx, RpcRx, RequestRx> = (
 
 // The following two structs allow us to avoid dynamic dispatch for serializing responses.
 // ViaductResponded forces the user to return a response in their request handler.
-// ViaductResponse allows the user to send anything Pipeable as a response.
+// ViaductResponse allows the user to send anything [`ViaductSerialize`] as a response.
 #[doc(hidden)]
 pub struct ViaductResponded(PhantomData<()>);
 /// Use [`ViaductResponse::respond`] to send a response to the other side.
@@ -27,7 +27,7 @@ pub struct ViaductResponse<'a>(&'a mut Vec<u8>);
 impl ViaductResponse<'_> {
 	/// Sends a response to the other side.
 	///
-	/// You can send whatever type you want, as long as it implements [`Pipeable`].
+	/// You can send whatever type you want, as long as it implements [`ViaductSerialize`].
 	///
 	/// # Panics
 	///
