@@ -159,17 +159,6 @@ use os::RawPipe;
 #[doc(hidden)]
 pub mod doctest;
 
-#[derive(Clone, Copy, Debug)]
-/// The error returned when a child viaduct is started on an independent process, or the connection is lost or unrecognised whilst the viaduct is initializing.
-pub struct ChildError;
-impl std::fmt::Display for ChildError {
-	#[inline]
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "Child process was not launched by a parent")
-	}
-}
-impl std::error::Error for ChildError {}
-
 /// Interface for creating a viaduct.
 ///
 /// `RpcTx` is the type sent to the peer process for RPC. In the peer process' code, this would be `RpcRx`
