@@ -2,9 +2,9 @@ use std::process::Command;
 
 fn main() {
 	std::thread::spawn(|| {
-		// If something is wrong, main will block forever. So kill it after 10 seconds.
-		std::thread::sleep(std::time::Duration::from_secs(10));
-		std::process::exit(1);
+		// If something is wrong, main will block forever. So kill it after 30 seconds.
+		std::thread::sleep(std::time::Duration::from_secs(30));
+		std::process::exit(33);
 	});
 
 	let named_thread = match unsafe {
