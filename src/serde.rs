@@ -38,6 +38,8 @@ impl ViaductDeserialize for Never {
 
 #[cfg(feature = "bincode")]
 mod bincode {
+	use super::{ViaductSerialize, ViaductDeserialize};
+
 	impl<T: serde::Serialize> ViaductSerialize for T {
 		type Error = bincode::Error;
 
@@ -58,6 +60,8 @@ mod bincode {
 
 #[cfg(feature = "speedy")]
 mod speedy {
+	use super::{ViaductSerialize, ViaductDeserialize};
+
 	#[cfg(target_endian = "little")]
 	type SpeedyEndian = speedy::LittleEndian;
 
@@ -72,7 +76,7 @@ mod speedy {
 			self.write_to_stream(&mut buf)
 		}
 	}
-	impl<'de, T: speedy::Writable<SpeedyEndian>> ViaductDeserialize for T {
+	impl<'de, T: speedy::Readable<'de, SpeedyEndian>> ViaductDeserialize for T {
 		type Error = speedy::Error;
 
 		#[inline]
