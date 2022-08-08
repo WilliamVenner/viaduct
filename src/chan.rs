@@ -1,4 +1,4 @@
-use crate::serde::{ViaductSerialize, ViaductDeserialize};
+use crate::serde::{ViaductDeserialize, ViaductSerialize};
 use interprocess::unnamed_pipe::{UnnamedPipeReader, UnnamedPipeWriter};
 use parking_lot::{Condvar, Mutex};
 use std::{
@@ -16,15 +16,18 @@ pub type Viaduct<RpcTx, RequestTx, RpcRx, RequestRx> = (
 	ViaductTx<RpcTx, RequestTx, RpcRx, RequestRx>,
 	ViaductRx<RpcTx, RequestTx, RpcRx, RequestRx>,
 );
-
-// The following two structs allow us to avoid dynamic dispatch for serializing responses.
-// ViaductResponded forces the user to return a response in their request handler.
-// ViaductResponse allows the user to send anything [`ViaductSerialize`] as a response.
-#[doc(hidden)]
-pub struct ViaductResponded(PhantomData<()>);
 /// Use [`ViaductResponse::respond`] to send a response to the other side.
-pub struct ViaductResponse<'a>(&'a mut Vec<u8>);
-impl ViaductResponse<'_> {
+pub struct ViaductResponse<RpcTx, RequestTx, RpcRx, RequestRx> {
+	tx: ViaductTx<RpcTx, RequestTx, RpcRx, RequestRx>,
+	request_id: Uuid,
+}
+impl<RpcTx, RequestTx, RpcRx, RequestRx> ViaductResponse<RpcTx, RequestTx, RpcRx, RequestRx>
+where
+	RpcTx: ViaductSerialize,
+	RequestTx: ViaductSerialize,
+	RpcRx: ViaductDeserialize,
+	RequestRx: ViaductDeserialize
+{
 	/// Sends a response to the other side.
 	///
 	/// You can send whatever type you want, as long as it implements [`ViaductSerialize`].
@@ -58,16 +61,23 @@ impl ViaductResponse<'_> {
 	///     },
 	/// ).unwrap();
 	/// ```
-	#[must_use = "You must return this from your request handler"]
-	pub fn respond(self, response: impl ViaductSerialize) -> ViaductResponded {
+	pub fn respond(self, response: impl ViaductSerialize) -> Result<(), std::io::Error> {
+		let mut state = self.tx.0.state.lock();
+		let ViaductTxState { tx, buf, .. } = &mut *state;
+
 		response
 			.to_pipeable({
-				self.0.clear();
-				self.0
+				buf.clear();
+				buf
 			})
 			.expect("Failed to serialize response");
 
-		ViaductResponded(Default::default())
+		tx.write_all(&[2])?;
+		tx.write_all(&*self.request_id.as_bytes())?;
+		tx.write_all(&u64::to_ne_bytes(buf.len() as _))?;
+		tx.write_all(buf)?;
+
+		Ok(())
 	}
 }
 
@@ -121,7 +131,7 @@ where
 	pub fn run<RpcHandler, RequestHandler>(mut self, mut rpc_handler: RpcHandler, mut request_handler: RequestHandler) -> Result<(), std::io::Error>
 	where
 		RpcHandler: FnMut(RpcRx),
-		RequestHandler: for<'a> FnMut(RequestRx, ViaductResponse<'a>) -> ViaductResponded,
+		RequestHandler: FnMut(RequestRx, ViaductResponse<RpcTx, RequestTx, RpcRx, RequestRx>),
 	{
 		let recv_into_buf = |rx: &mut UnnamedPipeReader, buf: &mut Vec<u8>| -> Result<(), std::io::Error> {
 			let len = {
@@ -152,22 +162,15 @@ where
 					let request_id = {
 						let mut request_id = [0u8; 16];
 						self.rx.read_exact(&mut request_id)?;
-						request_id
+						Uuid::from_bytes(request_id)
 					};
 
 					recv_into_buf(&mut self.rx, &mut self.buf)?;
 
-					let request = RequestRx::from_pipeable(&self.buf).expect("Failed to deserialize RequestRx");
-
-					self.buf.clear();
-					request_handler(request, ViaductResponse(&mut self.buf));
-
-					let mut tx = self.tx.0.state.lock();
-					let ViaductTxState { tx, .. } = &mut *tx;
-					tx.write_all(&[2])?;
-					tx.write_all(&request_id)?;
-					tx.write_all(&u64::to_ne_bytes(self.buf.len() as _))?;
-					tx.write_all(&self.buf)?;
+					request_handler(
+						RequestRx::from_pipeable(&self.buf).expect("Failed to deserialize RequestRx"),
+						ViaductResponse { tx: self.tx.clone(), request_id },
+					);
 				}
 
 				2 => {

@@ -84,7 +84,7 @@ fn main() {
 								shutdown_tx.try_send(()).unwrap();
 							},
 							|request, tx| {
-								tx.respond(request.a + request.b)
+								tx.respond(request.a + request.b).unwrap();
 							},
 						)
 						.unwrap();
@@ -119,7 +119,7 @@ fn main() {
 									shutdown_tx.try_send(()).unwrap();
 								},
 								|request, tx| {
-									tx.respond(request.a + request.b)
+									tx.respond(request.a + request.b).unwrap();
 								},
 							)
 							.unwrap();

@@ -192,10 +192,7 @@ where
 	///
 	/// # Safety
 	///
-	/// Undefined behaviour can result from:
-	///
-	/// * Manipulating the program's arguments in a way that disrupts Viaduct's handle exchange.
-	/// * Mixing 32-bit and 64-bit parent and child
+	/// Undefined behaviour can result from manipulating the program's arguments in a way that disrupts Viaduct's handle exchange.
 	pub unsafe fn child() -> Result<Viaduct<RpcTx, RequestTx, RpcRx, RequestRx>, std::io::Error> {
 		let mut args = std::env::args_os();
 		{
@@ -230,10 +227,7 @@ where
 	///
 	/// # Safety
 	///
-	/// Undefined behaviour can result from:
-	///
-	/// * Manipulating the program's arguments in a way that disrupts Viaduct's handle exchange.
-	/// * Mixing 32-bit and 64-bit parent and child
+	/// Undefined behaviour can result from manipulating the program's arguments in a way that disrupts Viaduct's handle exchange.
 	pub unsafe fn child_with_args_os() -> Result<(Viaduct<RpcTx, RequestTx, RpcRx, RequestRx>, impl Iterator<Item = OsString>), std::io::Error> {
 		let mut args = std::env::args_os();
 		let mut buffer = Vec::with_capacity(1);
@@ -275,10 +269,7 @@ where
 	///
 	/// # Safety
 	///
-	/// Undefined behaviour can result from:
-	///
-	/// * Manipulating the program's arguments in a way that disrupts Viaduct's handle exchange.
-	/// * Mixing 32-bit and 64-bit parent and child
+	/// Undefined behaviour can result from manipulating the program's arguments in a way that disrupts Viaduct's handle exchange.
 	pub unsafe fn child_with_args() -> Result<(Viaduct<RpcTx, RequestTx, RpcRx, RequestRx>, impl Iterator<Item = String>), std::io::Error> {
 		let mut args = std::env::args();
 		let mut buffer = Vec::with_capacity(1);
@@ -374,7 +365,7 @@ where
 		ready: F,
 	) -> Result<R, std::io::Error> {
 		tx.write_all(chan::HELLO)?;
-		tx.write_all(&u16::to_ne_bytes(dbg!(0x0102_u16)))?;
+		tx.write_all(&u16::to_ne_bytes(0x0102_u16))?;
 		tx.write_all(&u128::to_ne_bytes(core::mem::size_of::<usize>() as _))?;
 
 		let ready = ready()?;

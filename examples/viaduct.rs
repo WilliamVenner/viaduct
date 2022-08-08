@@ -39,7 +39,7 @@ fn main() {
 							|request: DummyRequestChildToParent, tx| {
 								assert_eq!(request.magic, 420);
 								println!("[PARENT] Request received: {}", request.magic);
-								tx.respond(DummyResponseParentToChild { magic: (420, 69) })
+								tx.respond(DummyResponseParentToChild { magic: (420, 69) }).unwrap();
 							},
 						)
 						.unwrap();
@@ -76,7 +76,7 @@ fn main() {
 								|request: DummyRequestParentToChild, tx| {
 									assert_eq!(request.magic, 42);
 									println!("[CHILD] Request received: {}", request.magic);
-									tx.respond(DummyResponseChildToParent { magic: 42069 })
+									tx.respond(DummyResponseChildToParent { magic: 42069 }).unwrap();
 								},
 							)
 							.unwrap();
