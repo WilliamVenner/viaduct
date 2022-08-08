@@ -156,6 +156,7 @@ impl viaduct::ViaductSerialize for DummyRpcParentToChild {
 		Ok(())
 	}
 }
+#[cfg(not(any(feature = "bincode", feature = "speedy")))]
 impl viaduct::ViaductDeserialize for DummyRpcParentToChild {
 	type Error = std::convert::Infallible;
 
@@ -173,6 +174,7 @@ impl viaduct::ViaductSerialize for DummyRpcChildToParent {
 		Ok(())
 	}
 }
+#[cfg(not(any(feature = "bincode", feature = "speedy")))]
 impl viaduct::ViaductDeserialize for DummyRpcChildToParent {
 	type Error = std::convert::Infallible;
 
@@ -191,6 +193,7 @@ impl viaduct::ViaductSerialize for DummyRequestParentToChild {
 		Ok(())
 	}
 }
+#[cfg(not(any(feature = "bincode", feature = "speedy")))]
 impl viaduct::ViaductDeserialize for DummyRequestParentToChild {
 	type Error = std::convert::Infallible;
 
@@ -209,6 +212,7 @@ impl viaduct::ViaductSerialize for DummyRequestChildToParent {
 		Ok(())
 	}
 }
+#[cfg(not(any(feature = "bincode", feature = "speedy")))]
 impl viaduct::ViaductDeserialize for DummyRequestChildToParent {
 	type Error = std::convert::Infallible;
 
@@ -227,6 +231,7 @@ impl viaduct::ViaductSerialize for DummyResponseChildToParent {
 		Ok(())
 	}
 }
+#[cfg(not(any(feature = "bincode", feature = "speedy")))]
 impl viaduct::ViaductDeserialize for DummyResponseChildToParent {
 	type Error = std::convert::Infallible;
 
@@ -246,6 +251,7 @@ impl viaduct::ViaductSerialize for DummyResponseParentToChild {
 		Ok(())
 	}
 }
+#[cfg(not(any(feature = "bincode", feature = "speedy")))]
 impl viaduct::ViaductDeserialize for DummyResponseParentToChild {
 	type Error = std::convert::Infallible;
 
