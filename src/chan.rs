@@ -16,12 +16,12 @@ pub type Viaduct<RpcTx, RequestTx, RpcRx, RequestRx> = (
 	ViaductTx<RpcTx, RequestTx, RpcRx, RequestRx>,
 	ViaductRx<RpcTx, RequestTx, RpcRx, RequestRx>,
 );
-/// Use [`ViaductResponse::respond`] to send a response to the other side.
-pub struct ViaductResponse<RpcTx, RequestTx, RpcRx, RequestRx> {
+/// Use [`ViaductRequestResponder::respond`] to send a response to the other side.
+pub struct ViaductRequestResponder<RpcTx, RequestTx, RpcRx, RequestRx> {
 	tx: ViaductTx<RpcTx, RequestTx, RpcRx, RequestRx>,
 	request_id: Uuid,
 }
-impl<RpcTx, RequestTx, RpcRx, RequestRx> ViaductResponse<RpcTx, RequestTx, RpcRx, RequestRx>
+impl<RpcTx, RequestTx, RpcRx, RequestRx> ViaductRequestResponder<RpcTx, RequestTx, RpcRx, RequestRx>
 where
 	RpcTx: ViaductSerialize,
 	RequestTx: ViaductSerialize,
@@ -131,7 +131,7 @@ where
 	pub fn run<RpcHandler, RequestHandler>(mut self, mut rpc_handler: RpcHandler, mut request_handler: RequestHandler) -> Result<(), std::io::Error>
 	where
 		RpcHandler: FnMut(RpcRx),
-		RequestHandler: FnMut(RequestRx, ViaductResponse<RpcTx, RequestTx, RpcRx, RequestRx>),
+		RequestHandler: FnMut(RequestRx, ViaductRequestResponder<RpcTx, RequestTx, RpcRx, RequestRx>),
 	{
 		let recv_into_buf = |rx: &mut UnnamedPipeReader, buf: &mut Vec<u8>| -> Result<(), std::io::Error> {
 			let len = {
@@ -169,7 +169,7 @@ where
 
 					request_handler(
 						RequestRx::from_pipeable(&self.buf).expect("Failed to deserialize RequestRx"),
-						ViaductResponse {
+						ViaductRequestResponder {
 							tx: self.tx.clone(),
 							request_id,
 						},

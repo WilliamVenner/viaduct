@@ -156,6 +156,8 @@ pub use self::serde::{Never, ViaductDeserialize, ViaductSerialize};
 mod os;
 use os::RawPipe;
 
+mod debugs;
+
 #[doc(hidden)]
 pub mod doctest;
 
