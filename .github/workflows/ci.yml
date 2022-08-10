@@ -16,13 +16,33 @@ jobs:
       RUSTFLAGS: --cfg ci_test
     steps:
       - uses: actions/checkout@v2
+
       - uses: actions-rs/toolchain@v1
+        if: ${{ matrix.os == 'ubuntu-latest' }}
         with:
           toolchain: stable
           profile: minimal
           components: clippy
-      - name: Clippy
+          target: i686-unknown-linux-gnu
+
+      - uses: actions-rs/toolchain@v1
+        if: ${{ matrix.os == 'windows-latest' }}
+        with:
+          toolchain: stable
+          profile: minimal
+          components: clippy
+          target: i686-pc-windows-msvc
+
+      - name: Clippy (64-bit)
         run: cargo clippy --profile ci-test --examples --tests --benches ${{ matrix.features }}
+
+      - name: Clippy (32-bit)
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: cargo clippy --target i686-unknown-linux-gnu --profile ci-test --examples --tests --benches ${{ matrix.features }}
+
+      - name: Clippy (32-bit)
+        if: ${{ matrix.os == 'windows-latest' }}
+        run: cargo clippy --target i686-pc-windows-msvc --profile ci-test --examples --tests --benches ${{ matrix.features }}
 
   fmt:
     needs: check

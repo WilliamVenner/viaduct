@@ -40,7 +40,7 @@ where
 	///
 	/// ```no_run
 	/// # use viaduct::doctest::*;
-	/// # let rx = unsafe { viaduct::ViaductBuilder::<ExampleRpc, ExampleRequest, ExampleRpc, ExampleRequest>::child() }.unwrap().1;
+	/// # let rx = unsafe { viaduct::ViaductChild::<ExampleRpc, ExampleRequest, ExampleRpc, ExampleRequest>::new().build() }.unwrap().1;
 	/// rx.run(
 	///     |rpc: ExampleRpc| match rpc {
 	///         ExampleRpc::Cow => println!("Moo"),
@@ -105,7 +105,7 @@ where
 	///
 	/// ```no_run
 	/// # use viaduct::doctest::*;
-	/// # let rx = unsafe { viaduct::ViaductBuilder::<ExampleRpc, ExampleRequest, ExampleRpc, ExampleRequest>::child() }.unwrap().1;
+	/// # let rx = unsafe { viaduct::ViaductChild::<ExampleRpc, ExampleRequest, ExampleRpc, ExampleRequest>::new().build() }.unwrap().1;
 	/// std::thread::spawn(move || {
 	///     rx.run(
 	///         |rpc: ExampleRpc| match rpc {

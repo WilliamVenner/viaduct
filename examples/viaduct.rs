@@ -8,8 +8,8 @@ fn main() {
 	});
 
 	let named_thread = match unsafe {
-		viaduct::ViaductBuilder::<DummyRpcChildToParent, DummyRequestChildToParent, DummyRpcParentToChild, DummyRequestParentToChild>::child_with_args(
-		)
+		viaduct::ViaductChild::<DummyRpcChildToParent, DummyRequestChildToParent, DummyRpcParentToChild, DummyRequestParentToChild>::new()
+			.build_with_args()
 	} {
 		// We're the parent process
 		Err(_) => std::thread::Builder::new()
@@ -17,12 +17,12 @@ fn main() {
 			.spawn(|| {
 				println!("parent pid {:?}", std::process::id());
 
-				let ((tx, rx), mut child) = viaduct::ViaductBuilder::<
+				let ((tx, rx), mut child) = viaduct::ViaductParent::<
 					DummyRpcParentToChild,
 					DummyRequestParentToChild,
 					DummyRpcChildToParent,
 					DummyRequestChildToParent,
-				>::parent(Command::new(std::env::current_exe().unwrap()))
+				>::new(Command::new(std::env::current_exe().unwrap()))
 				.unwrap()
 				.arg("Viaduct test!")
 				.build()

@@ -62,14 +62,14 @@ fn main() {
 		std::process::exit(33);
 	});
 
-	let named_thread = match unsafe { viaduct::ViaductBuilder::<(), Add, (), Add>::child_with_args() } {
+	let named_thread = match unsafe { viaduct::ViaductChild::<(), Add, (), Add>::new().build_with_args() } {
 		// We're the parent process
 		Err(_) => std::thread::Builder::new()
 			.name("parent".to_string())
 			.spawn(|| {
 				println!("parent pid {:?}", std::process::id());
 
-				let ((tx, rx), mut child) = viaduct::ViaductBuilder::<(), Add, (), Add>::parent(Command::new(std::env::current_exe().unwrap()))
+				let ((tx, rx), mut child) = viaduct::ViaductParent::<(), Add, (), Add>::new(Command::new(std::env::current_exe().unwrap()))
 					.unwrap()
 					.arg("Viaduct test!")
 					.build()

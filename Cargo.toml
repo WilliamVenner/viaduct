@@ -24,7 +24,7 @@ bincode = ["dep:bincode", "dep:serde"]
 
 [dependencies]
 interprocess = { version = "1", default-features = false }
-parking_lot = "0"
+parking_lot = "0.12"
 uuid = { version = "1", features = ["v4"] }
 serde = { version = "1", optional = true }
 bincode = { version = "1", optional = true }
@@ -33,4 +33,10 @@ bytemuck = { version = "1", optional = true }
 
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }
-rand = "0"
+rand = "0.8"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.39", features = ["Win32_Foundation"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
