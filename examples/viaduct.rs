@@ -1,4 +1,5 @@
 use std::process::Command;
+use viaduct::{ViaductChild, ViaductDeserialize, ViaductEvent, ViaductParent, ViaductSerialize};
 
 fn main() {
 	std::thread::spawn(|| {
@@ -8,8 +9,7 @@ fn main() {
 	});
 
 	let named_thread = match unsafe {
-		viaduct::ViaductChild::<DummyRpcChildToParent, DummyRequestChildToParent, DummyRpcParentToChild, DummyRequestParentToChild>::new()
-			.build_with_args()
+		ViaductChild::<DummyRpcChildToParent, DummyRequestChildToParent, DummyRpcParentToChild, DummyRequestParentToChild>::new().build_with_args()
 	} {
 		// We're the parent process
 		Err(_) => std::thread::Builder::new()
@@ -17,38 +17,39 @@ fn main() {
 			.spawn(|| {
 				println!("parent pid {:?}", std::process::id());
 
-				let ((tx, rx), mut child) = viaduct::ViaductParent::<
-					DummyRpcParentToChild,
-					DummyRequestParentToChild,
-					DummyRpcChildToParent,
-					DummyRequestChildToParent,
-				>::new(Command::new(std::env::current_exe().unwrap()))
-				.unwrap()
-				.arg("Viaduct test!")
-				.build()
-				.unwrap();
+				let ((tx, rx), mut child) =
+					ViaductParent::<DummyRpcParentToChild, DummyRequestParentToChild, DummyRpcChildToParent, DummyRequestChildToParent>::new(
+						Command::new(std::env::current_exe().unwrap()),
+					)
+					.unwrap()
+					.arg("Viaduct test!")
+					.build()
+					.unwrap();
 
 				std::thread::Builder::new()
 					.name("parent event loop".to_string())
 					.spawn(move || {
-						rx.run(
-							|rpc: DummyRpcChildToParent| {
+						rx.run(|event| match event {
+							ViaductEvent::Rpc(rpc) => {
 								assert_eq!(rpc.magic, 321);
 								println!("[PARENT] RPC received: {}", rpc.magic);
-							},
-							|request: DummyRequestChildToParent, tx| {
+							}
+							ViaductEvent::Request { request, responder } => {
 								assert_eq!(request.magic, 420);
 								println!("[PARENT] Request received: {}", request.magic);
-								tx.respond(DummyResponseParentToChild { magic: (420, 69) }).unwrap();
-							},
-						)
+								responder.respond(DummyResponseParentToChild { magic: (420, 69) }).unwrap();
+							}
+						})
 						.unwrap();
 					})
 					.unwrap();
 
 				tx.rpc(DummyRpcParentToChild { magic: 123 }).unwrap();
 
-				let response = tx.request::<DummyResponseChildToParent>(DummyRequestParentToChild { magic: 42 }).unwrap();
+				let response = tx
+					.request::<DummyResponseChildToParent>(DummyRequestParentToChild { magic: 42 })
+					.unwrap()
+					.unwrap();
 				assert_eq!(response.magic, 42069);
 				println!("[PARENT] Response received: {:?}", response.magic);
 
@@ -68,17 +69,18 @@ fn main() {
 					std::thread::Builder::new()
 						.name("child event loop".to_string())
 						.spawn(move || {
-							rx.run(
-								|rpc: DummyRpcParentToChild| {
+							rx.run(|event| match event {
+								ViaductEvent::Rpc(rpc) => {
 									assert_eq!(rpc.magic, 123);
 									println!("[CHILD] RPC received: {}", rpc.magic);
-								},
-								|request: DummyRequestParentToChild, tx| {
+								}
+
+								ViaductEvent::Request { request, responder } => {
 									assert_eq!(request.magic, 42);
 									println!("[CHILD] Request received: {}", request.magic);
-									tx.respond(DummyResponseChildToParent { magic: 42069 }).unwrap();
-								},
-							)
+									responder.respond(DummyResponseChildToParent { magic: 42069 }).unwrap();
+								}
+							})
 							.unwrap();
 						})
 						.unwrap();
@@ -87,6 +89,7 @@ fn main() {
 
 					let response = tx
 						.request::<DummyResponseParentToChild>(DummyRequestChildToParent { magic: 420 })
+						.unwrap()
 						.unwrap();
 					assert_eq!(response.magic, (420, 69));
 					println!("[CHILD] Response received: {:?}", response.magic);
@@ -148,7 +151,7 @@ struct DummyResponseParentToChild {
 use std::io::Write;
 
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::ViaductSerialize for DummyRpcParentToChild {
+impl ViaductSerialize for DummyRpcParentToChild {
 	type Error = std::convert::Infallible;
 
 	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::Error> {
@@ -157,7 +160,7 @@ impl viaduct::ViaductSerialize for DummyRpcParentToChild {
 	}
 }
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::ViaductDeserialize for DummyRpcParentToChild {
+impl ViaductDeserialize for DummyRpcParentToChild {
 	type Error = std::convert::Infallible;
 
 	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::Error> {
@@ -166,7 +169,7 @@ impl viaduct::ViaductDeserialize for DummyRpcParentToChild {
 	}
 }
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::ViaductSerialize for DummyRpcChildToParent {
+impl ViaductSerialize for DummyRpcChildToParent {
 	type Error = std::convert::Infallible;
 
 	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::Error> {
@@ -175,7 +178,7 @@ impl viaduct::ViaductSerialize for DummyRpcChildToParent {
 	}
 }
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::ViaductDeserialize for DummyRpcChildToParent {
+impl ViaductDeserialize for DummyRpcChildToParent {
 	type Error = std::convert::Infallible;
 
 	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::Error> {
@@ -185,7 +188,7 @@ impl viaduct::ViaductDeserialize for DummyRpcChildToParent {
 	}
 }
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::ViaductSerialize for DummyRequestParentToChild {
+impl ViaductSerialize for DummyRequestParentToChild {
 	type Error = std::convert::Infallible;
 
 	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::Error> {
@@ -194,7 +197,7 @@ impl viaduct::ViaductSerialize for DummyRequestParentToChild {
 	}
 }
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::ViaductDeserialize for DummyRequestParentToChild {
+impl ViaductDeserialize for DummyRequestParentToChild {
 	type Error = std::convert::Infallible;
 
 	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::Error> {
@@ -204,7 +207,7 @@ impl viaduct::ViaductDeserialize for DummyRequestParentToChild {
 	}
 }
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::ViaductSerialize for DummyRequestChildToParent {
+impl ViaductSerialize for DummyRequestChildToParent {
 	type Error = std::convert::Infallible;
 
 	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::Error> {
@@ -213,7 +216,7 @@ impl viaduct::ViaductSerialize for DummyRequestChildToParent {
 	}
 }
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::ViaductDeserialize for DummyRequestChildToParent {
+impl ViaductDeserialize for DummyRequestChildToParent {
 	type Error = std::convert::Infallible;
 
 	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::Error> {
@@ -223,7 +226,7 @@ impl viaduct::ViaductDeserialize for DummyRequestChildToParent {
 	}
 }
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::ViaductSerialize for DummyResponseChildToParent {
+impl ViaductSerialize for DummyResponseChildToParent {
 	type Error = std::convert::Infallible;
 
 	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::Error> {
@@ -232,7 +235,7 @@ impl viaduct::ViaductSerialize for DummyResponseChildToParent {
 	}
 }
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::ViaductDeserialize for DummyResponseChildToParent {
+impl ViaductDeserialize for DummyResponseChildToParent {
 	type Error = std::convert::Infallible;
 
 	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::Error> {
@@ -242,7 +245,7 @@ impl viaduct::ViaductDeserialize for DummyResponseChildToParent {
 	}
 }
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::ViaductSerialize for DummyResponseParentToChild {
+impl ViaductSerialize for DummyResponseParentToChild {
 	type Error = std::convert::Infallible;
 
 	fn to_pipeable(&self, buf: &mut Vec<u8>) -> Result<(), Self::Error> {
@@ -252,7 +255,7 @@ impl viaduct::ViaductSerialize for DummyResponseParentToChild {
 	}
 }
 #[cfg(not(any(feature = "bincode", feature = "speedy")))]
-impl viaduct::ViaductDeserialize for DummyResponseParentToChild {
+impl ViaductDeserialize for DummyResponseParentToChild {
 	type Error = std::convert::Infallible;
 
 	fn from_pipeable(bytes: &[u8]) -> Result<Self, Self::Error> {

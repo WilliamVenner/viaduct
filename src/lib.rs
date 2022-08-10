@@ -24,73 +24,73 @@
 //! ## Parent process
 //!
 //! ```no_run
-//! # use viaduct::doctest::*;
+//! # use viaduct::{ViaductEvent, ViaductParent, doctest::*};
 //! let child = std::process::Command::new("child.exe");
-//! let ((tx, rx), mut child) = viaduct::ViaductParent::new(child).unwrap().build().unwrap();
+//! let ((tx, rx), mut child) = ViaductParent::new(child).unwrap().build().unwrap();
 //!
 //! std::thread::spawn(move || {
-//!     rx.run(
-//!         |rpc: ExampleRpc| match rpc {
-//!             ExampleRpc::Cow => println!("Moo"),
-//!             ExampleRpc::Pig => println!("Oink"),
-//!             ExampleRpc::Horse => println!("Neigh"),
-//!         },
+//!    rx.run(|event| match event {
+//!        ViaductEvent::Rpc(rpc) => match rpc {
+//!            ExampleRpc::Cow => println!("Moo"),
+//!            ExampleRpc::Pig => println!("Oink"),
+//!            ExampleRpc::Horse => println!("Neigh"),
+//!        },
 //!
-//!         |request: ExampleRequest, tx| match request {
-//!             ExampleRequest::DoAFrontflip => {
-//!                 println!("Doing a frontflip!");
-//!                 tx.respond(Ok::<_, FrontflipError>(())).unwrap();
-//!             },
+//!        ViaductEvent::Request { request, responder } => match request {
+//!            ExampleRequest::DoAFrontflip => {
+//!                println!("Doing a frontflip!");
+//!                responder.respond(Ok::<_, FrontflipError>(())).unwrap();
+//!            },
 //!
-//!             ExampleRequest::DoABackflip => {
-//!                 println!("Doing a backflip!");
-//!                 tx.respond(Ok::<_, BackflipError>(())).unwrap();
-//!             },
-//!         },
-//!     ).unwrap();
+//!            ExampleRequest::DoABackflip => {
+//!                println!("Doing a backflip!");
+//!                responder.respond(Ok::<_, BackflipError>(())).unwrap();
+//!            },
+//!        }
+//!    }).unwrap();
 //! });
 //!
 //! tx.rpc(ExampleRpc::Cow).unwrap();
 //! tx.rpc(ExampleRpc::Pig).unwrap();
 //! tx.rpc(ExampleRpc::Horse).unwrap();
 //!
-//! let response: Result<(), FrontflipError> = tx.request(ExampleRequest::DoAFrontflip).unwrap();
+//! let response: Result<(), FrontflipError> = tx.request(ExampleRequest::DoAFrontflip).unwrap().unwrap();
 //! assert_eq!(response, Ok(()));
 //! ```
 //!
 //! ## Child process
 //!
 //! ```no_run
-//! # use viaduct::doctest::*;
-//! let (tx, rx) = unsafe { viaduct::ViaductChild::new().build() }.unwrap();
+//! # use viaduct::{ViaductEvent, ViaductChild, doctest::*};
+//! let (tx, rx) = unsafe { ViaductChild::new().build() }.unwrap();
 //!
 //! std::thread::spawn(move || {
-//!     rx.run(
-//!         |rpc: ExampleRpc| match rpc {
-//!             ExampleRpc::Cow => println!("Moo"),
-//!             ExampleRpc::Pig => println!("Oink"),
-//!             ExampleRpc::Horse => println!("Neigh"),
-//!         },
+//!    rx.run(|event| match event {
+//!        ViaductEvent::Rpc(rpc) => match rpc {
+//!            ExampleRpc::Cow => println!("Moo"),
+//!            ExampleRpc::Pig => println!("Oink"),
+//!            ExampleRpc::Horse => println!("Neigh"),
+//!        },
 //!
-//!         |request: ExampleRequest, tx| match request {
-//!             ExampleRequest::DoAFrontflip => {
-//!                 println!("Doing a frontflip!");
-//!                 tx.respond(Ok::<_, FrontflipError>(())).unwrap();
-//!             },
+//!        ViaductEvent::Request { request, responder } => match request {
+//!            ExampleRequest::DoAFrontflip => {
+//!                println!("Doing a frontflip!");
+//!                responder.respond(Ok::<_, FrontflipError>(())).unwrap();
+//!            },
 //!
-//!             ExampleRequest::DoABackflip => {
-//!                 println!("Doing a backflip!");
-//!                 tx.respond(Ok::<_, BackflipError>(())).unwrap();
-//!             },
-//!         },
-//!     ).unwrap();
+//!            ExampleRequest::DoABackflip => {
+//!                println!("Doing a backflip!");
+//!                responder.respond(Ok::<_, BackflipError>(())).unwrap();
+//!            },
+//!        }
+//!    }).unwrap();
 //! });
 //!
 //! tx.rpc(ExampleRpc::Horse).unwrap();
 //! tx.rpc(ExampleRpc::Pig).unwrap();
 //! tx.rpc(ExampleRpc::Cow).unwrap();
 //!
-//! let response: Result<(), BackflipError> = tx.request(ExampleRequest::DoABackflip).unwrap();
+//! let response: Result<(), BackflipError> = tx.request(ExampleRequest::DoABackflip).unwrap().unwrap();
 //! assert_eq!(response, Ok(()));
 //! ```
 //!
@@ -168,6 +168,31 @@ mod debugs;
 
 #[doc(hidden)]
 pub mod doctest;
+
+/// An event that was received over the viaduct.
+pub enum ViaductEvent<RpcTx, RequestTx, RpcRx, RequestRx>
+where
+	RpcTx: ViaductSerialize,
+	RequestTx: ViaductSerialize,
+	RpcRx: ViaductDeserialize,
+	RequestRx: ViaductDeserialize,
+{
+	/// An RPC was received.
+	Rpc(RpcRx),
+
+	/// A request was received.
+	///
+	/// You can use [`ViaductRequestResponder::respond`] to respond to the request.
+	Request {
+		/// The request that was received.
+		request: RequestRx,
+
+		/// The responder that can be used to respond to the request.
+		///
+		/// Use [`ViaductRequestResponder::respond`] to respond to the request.
+		responder: ViaductRequestResponder<RpcTx, RequestTx, RpcRx, RequestRx>,
+	},
+}
 
 fn verify_channel<R, F: FnOnce() -> Result<R, std::io::Error>>(
 	tx: &mut UnnamedPipeWriter,

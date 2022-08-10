@@ -1,6 +1,6 @@
 use std::sync::{Arc, Barrier};
 use std::{io::Write, process::Command};
-use viaduct::{ViaductDeserialize, ViaductSerialize, ViaductTx};
+use viaduct::{ViaductChild, ViaductDeserialize, ViaductEvent, ViaductParent, ViaductSerialize, ViaductTx};
 
 #[derive(Clone, Copy, Debug)]
 struct Add {
@@ -45,7 +45,7 @@ fn parallel_maths<RpcTx: ViaductSerialize + Send + Sync + 'static, RpcRx: Viaduc
 		let barrier = barrier.clone();
 		threads.push(std::thread::spawn(move || {
 			barrier.wait();
-			assert_eq!(tx.request::<u32>(*problem).unwrap(), *answer);
+			assert_eq!(tx.request::<u32>(*problem).unwrap().unwrap(), *answer);
 			println!("[{}] {problem:?} = {answer:?}", std::process::id());
 		}));
 	}
@@ -62,14 +62,14 @@ fn main() {
 		std::process::exit(33);
 	});
 
-	let named_thread = match unsafe { viaduct::ViaductChild::<(), Add, (), Add>::new().build_with_args() } {
+	let named_thread = match unsafe { ViaductChild::<(), Add, (), Add>::new().build_with_args() } {
 		// We're the parent process
 		Err(_) => std::thread::Builder::new()
 			.name("parent".to_string())
 			.spawn(|| {
 				println!("parent pid {:?}", std::process::id());
 
-				let ((tx, rx), mut child) = viaduct::ViaductParent::<(), Add, (), Add>::new(Command::new(std::env::current_exe().unwrap()))
+				let ((tx, rx), mut child) = ViaductParent::<(), Add, (), Add>::new(Command::new(std::env::current_exe().unwrap()))
 					.unwrap()
 					.arg("Viaduct test!")
 					.build()
@@ -80,14 +80,12 @@ fn main() {
 				std::thread::Builder::new()
 					.name("parent event loop".to_string())
 					.spawn(move || {
-						rx.run(
-							|_| {
-								shutdown_tx.try_send(()).unwrap();
-							},
-							|request, tx| {
-								tx.respond(request.a + request.b).unwrap();
-							},
-						)
+						rx.run(|event| match event {
+							ViaductEvent::Rpc(_) => shutdown_tx.try_send(()).unwrap(),
+							ViaductEvent::Request { request, responder } => {
+								responder.respond(request.a + request.b).unwrap();
+							}
+						})
 						.unwrap();
 					})
 					.unwrap();
@@ -115,14 +113,12 @@ fn main() {
 					std::thread::Builder::new()
 						.name("child event loop".to_string())
 						.spawn(move || {
-							rx.run(
-								|_| {
-									shutdown_tx.try_send(()).unwrap();
-								},
-								|request, tx| {
-									tx.respond(request.a + request.b).unwrap();
-								},
-							)
+							rx.run(|event| match event {
+								ViaductEvent::Rpc(_) => shutdown_tx.try_send(()).unwrap(),
+								ViaductEvent::Request { request, responder } => {
+									responder.respond(request.a + request.b).unwrap();
+								}
+							})
 							.unwrap();
 						})
 						.unwrap();

@@ -33,7 +33,7 @@ pub struct BackflipError;
 
 ```rust
 let child = std::process::Command::new("child.exe");
-let ((tx, rx), mut child) = viaduct::ViaductParent::new(child).unwrap().build().unwrap();
+let ((tx, rx), mut child) = ViaductParent::new(child).unwrap().build().unwrap();
 
 std::thread::spawn(move || {
     rx.run(
@@ -68,7 +68,7 @@ assert_eq!(response, Ok(()));
 ## Child process
 
 ```rust
-let (tx, rx) = unsafe { viaduct::ViaductChild::new() }.unwrap();
+let (tx, rx) = unsafe { ViaductChild::new() }.unwrap();
 
 std::thread::spawn(move || {
     rx.run(
