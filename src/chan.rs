@@ -274,7 +274,7 @@ where
 
 	/// Sends a request to the peer process and awaits a response.
 	///
-	/// Only one request can be made at a time by any thread. A single request will block all threads trying to send requests and RPCs.
+	/// This will block the current thread.
 	///
 	/// # Panics
 	///
