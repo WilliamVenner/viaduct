@@ -88,7 +88,7 @@ where
 			.expect("Failed to serialize response");
 
 		tx.write_all(&[2])?;
-		tx.write_all(&*self.request_id.as_bytes())?;
+		tx.write_all(self.request_id.as_bytes())?;
 		tx.write_all(&u64::to_ne_bytes(buf.len() as _))?;
 		tx.write_all(buf)?;
 
@@ -108,7 +108,7 @@ where
 
 		(|| {
 			tx.write_all(&[3])?;
-			tx.write_all(&*self.request_id.as_bytes())?;
+			tx.write_all(self.request_id.as_bytes())?;
 			Ok::<_, std::io::Error>(())
 		})()
 		.unwrap();
