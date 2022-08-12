@@ -111,7 +111,7 @@ where
 			tx.write_all(&*self.request_id.as_bytes())?;
 			Ok::<_, std::io::Error>(())
 		})()
-		.ok();
+		.unwrap();
 	}
 }
 
@@ -215,10 +215,6 @@ where
 
 				SOME_RESPONSE => {
 					let mut response = self.tx.0.response.lock();
-					self.tx
-						.0
-						.response_condvar
-						.wait_while(&mut response, |response| response.for_request_id.is_some());
 
 					response.for_request_id = Some({
 						let mut request_id = [0u8; 16];
@@ -236,10 +232,6 @@ where
 
 				NONE_RESPONSE => {
 					let mut response = self.tx.0.response.lock();
-					self.tx
-						.0
-						.response_condvar
-						.wait_while(&mut response, |response| response.for_request_id.is_some());
 
 					response.for_request_id = Some({
 						let mut request_id = [0u8; 16];
@@ -429,9 +421,14 @@ where
 			tx.write_all(&*buf)?;
 		}
 
-		self.0
+		if self
+			.0
 			.response_condvar
-			.wait_while_until(&mut response, |response| response.request_id() != Some(&request_id), timeout_at);
+			.wait_while_until(&mut response, |response| response.request_id() != Some(&request_id), timeout_at)
+			.timed_out()
+		{
+			return Err(std::io::Error::from(std::io::ErrorKind::TimedOut));
+		}
 
 		let (for_request_id, some) = response.for_request_id.take().unwrap();
 		debug_assert_eq!(for_request_id, request_id);
