@@ -77,20 +77,24 @@ where
 	/// }).unwrap();
 	/// ```
 	pub fn respond(self, response: impl ViaductSerialize) -> Result<(), std::io::Error> {
-		let mut state = self.tx.0.state.lock();
-		let ViaductTxState { tx, buf, .. } = &mut *state;
+		{
+			let mut state = self.tx.0.state.lock();
+			let ViaductTxState { tx, buf, .. } = &mut *state;
 
-		response
-			.to_pipeable({
-				buf.clear();
-				buf
-			})
-			.expect("Failed to serialize response");
+			response
+				.to_pipeable({
+					buf.clear();
+					buf
+				})
+				.expect("Failed to serialize response");
 
-		tx.write_all(&[2])?;
-		tx.write_all(self.request_id.as_bytes())?;
-		tx.write_all(&u64::to_ne_bytes(buf.len() as _))?;
-		tx.write_all(buf)?;
+			tx.write_all(&[2])?;
+			tx.write_all(self.request_id.as_bytes())?;
+			tx.write_all(&u64::to_ne_bytes(buf.len() as _))?;
+			tx.write_all(buf)?;
+		}
+
+		std::mem::forget(self);
 
 		Ok(())
 	}
