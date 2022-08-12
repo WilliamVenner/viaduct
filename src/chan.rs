@@ -9,7 +9,7 @@ use std::{
 	marker::PhantomData,
 	mem::size_of,
 	sync::Arc,
-	time::{Duration, Instant},
+	time::{Duration, Instant}, collections::BTreeSet,
 };
 use uuid::Uuid;
 
@@ -219,16 +219,27 @@ where
 
 				SOME_RESPONSE => {
 					let mut response = self.tx.0.response.lock();
+					self.tx
+						.0
+						.response_condvar
+						.wait_while(&mut response, |response| response.for_request_id.is_some());
 
-					response.for_request_id = Some({
+					let request_id = {
 						let mut request_id = [0u8; 16];
 						self.rx.read_exact(&mut request_id)?;
-						(Uuid::from_bytes(request_id), true)
-					});
+						Uuid::from_bytes(request_id)
+					};
 
 					// Receive the response into the sender's buffer
 					response.buf.clear();
 					recv_into_buf(&mut self.rx, &mut response.buf)?;
+
+					if !response.pending.remove(&request_id) {
+						// The request was cancelled. Discard.
+						continue;
+					}
+
+					response.for_request_id = Some((request_id, true));
 
 					// Tell the sender that the response is ready and in their buffer!
 					self.tx.0.response_condvar.notify_all();
@@ -236,12 +247,23 @@ where
 
 				NONE_RESPONSE => {
 					let mut response = self.tx.0.response.lock();
+					self.tx
+						.0
+						.response_condvar
+						.wait_while(&mut response, |response| response.for_request_id.is_some());
 
-					response.for_request_id = Some({
+					let request_id = {
 						let mut request_id = [0u8; 16];
 						self.rx.read_exact(&mut request_id)?;
-						(Uuid::from_bytes(request_id), false)
-					});
+						Uuid::from_bytes(request_id)
+					};
+
+					if !response.pending.remove(&request_id) {
+						// The request was cancelled. Discard.
+						continue;
+					}
+
+					response.for_request_id = Some((request_id, false));
 
 					// Tell the sender that the response is ready and in their buffer!
 					self.tx.0.response_condvar.notify_all();
@@ -255,6 +277,7 @@ where
 
 #[derive(Default)]
 pub(super) struct ViaductResponseState {
+	pending: BTreeSet<Uuid>,
 	for_request_id: Option<(Uuid, bool)>,
 	buf: Vec<u8>,
 }
@@ -346,6 +369,8 @@ where
 		// Get a request ID
 		let request_id = Uuid::new_v4();
 
+		response.pending.insert(request_id);
+
 		// Send the request down the wire
 		{
 			let mut state = self.0.state.lock();
@@ -403,6 +428,8 @@ where
 		// Get a request ID
 		let request_id = Uuid::new_v4();
 
+		response.pending.insert(request_id);
+
 		// Send the request down the wire
 		{
 			let mut state = self
@@ -429,8 +456,8 @@ where
 			.0
 			.response_condvar
 			.wait_while_until(&mut response, |response| response.request_id() != Some(&request_id), timeout_at)
-			.timed_out()
-		{
+			.timed_out() {
+			response.pending.remove(&request_id);
 			return Err(std::io::Error::from(std::io::ErrorKind::TimedOut));
 		}
 
