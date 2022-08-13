@@ -5,11 +5,12 @@ use crate::{
 use interprocess::unnamed_pipe::{UnnamedPipeReader, UnnamedPipeWriter};
 use parking_lot::{Condvar, Mutex};
 use std::{
+	collections::BTreeSet,
 	io::{Read, Write},
 	marker::PhantomData,
 	mem::size_of,
 	sync::Arc,
-	time::{Duration, Instant}, collections::BTreeSet,
+	time::{Duration, Instant},
 };
 use uuid::Uuid;
 
@@ -456,7 +457,8 @@ where
 			.0
 			.response_condvar
 			.wait_while_until(&mut response, |response| response.request_id() != Some(&request_id), timeout_at)
-			.timed_out() {
+			.timed_out()
+		{
 			response.pending.remove(&request_id);
 			return Err(std::io::Error::from(std::io::ErrorKind::TimedOut));
 		}
